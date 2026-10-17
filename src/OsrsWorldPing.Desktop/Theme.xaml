@@ -242,6 +242,10 @@
       </Setter.Value>
     </Setter>
   </Style>
+  <Style x:Key="DangerActivityText" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource ActivityInk}"/>
+    <Style.Triggers><DataTrigger Binding="{Binding IsDangerous}" Value="True"><Setter Property="Foreground" Value="#FF9690"/></DataTrigger></Style.Triggers>
+  </Style>
   <Style x:Key="DangerText" TargetType="TextBlock">
     <Setter Property="Foreground" Value="{StaticResource Gold}"/>
     <Style.Triggers><DataTrigger Binding="{Binding IsMembers}" Value="False"><Setter Property="Foreground" Value="{StaticResource Silver}"/></DataTrigger><DataTrigger Binding="{Binding IsDangerous}" Value="True"><Setter Property="Foreground" Value="#FF9690"/></DataTrigger></Style.Triggers>

@@ -470,6 +470,10 @@ public sealed class DesktopTests
             Assert.False(main.Model.AllWorlds.Single(w => w.Id == 303).IsDangerous);
             Assert.False(main.Model.ConnectionHealthy); Assert.True(main.Model.ConnectionPartial); Assert.Contains("2 of 3", main.Model.ConnectionSummary);
             main.Model.ShowSettings = false; main.UpdateLayout(); Preview(main, "dashboard-failure-fallbacks.png");
+            h.Probe.Handler = (host, _) => Task.FromResult(new ProbeResult(ProbeStatus.Success, host == "supplied.example" ? 1 : 10));
+            await h.Engine.CheckTrackedWorldsAsync(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Equal(301, main.Model.BestWorld!.Id);
+            Assert.Equal(Color.FromRgb(255, 150, 144), ((SolidColorBrush)((TextBlock)main.FindName("BestActivityText")).Foreground).Color);
             h.Catalogue.Error = new HttpRequestException("Offline again"); await h.Engine.RecheckAsync();
             await UntilAsync(() => main.Model.HasNotice);
             main.Model.ShowSettings = true; main.UpdateLayout(); Preview(main, "cached-catalogue-notice.png");
