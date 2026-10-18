@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media.Effects;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -17,7 +16,7 @@ using OsrsWorldPing.Desktop;
 
 namespace OsrsWorldPing.Desktop.Tests;
 
-public sealed class DesktopTests
+public sealed partial class DesktopTests
 {
     private static readonly Lazy<Task<Dispatcher>> Ui = new(() =>
     {
@@ -38,22 +37,37 @@ public sealed class DesktopTests
         while (!condition()) { if (DateTime.UtcNow > deadline) throw new TimeoutException("WPF condition was not met"); await Task.Delay(30); }
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
     }
+    private static async Task SetClientAnimationsAsync(bool enabled)
+    {
+        Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(enabled ? 1 : 0), 2));
+        bool nativeAnimations = !enabled;
+        Assert.True(SystemParametersInfoBoolean(0x1042, 0, ref nativeAnimations, 0));
+        Assert.Equal(enabled, nativeAnimations);
+        SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
+        await UntilAsync(() => SystemParameters.ClientAreaAnimation == enabled);
+    }
     private static async Task ResizeAsync(MainWindow window, double width, double height)
     {
         window.WindowState = WindowState.Normal;
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-        // Restored bounds can be centered; a full-desktop test window must start at the work-area origin
-        // so native pointer input can reach its last column, not just an off-screen rendered preview.
+        // Simulate a smaller usable work area; the production window is locked and scales proportionally.
+        var fitted = FixedWindowLayout.Fit(width, height);
+        window.MinWidth = window.MinHeight = 0; window.MaxWidth = window.MaxHeight = double.PositiveInfinity;
         window.Left = SystemParameters.WorkArea.Left; window.Top = SystemParameters.WorkArea.Top;
-        window.Width = width; window.Height = height;
-        await UntilAsync(() => Math.Abs(window.ActualWidth - width) < 1 && Math.Abs(window.ActualHeight - height) < 1);
+        window.Width = fitted.Width; window.Height = fitted.Height;
+        window.MinWidth = window.MaxWidth = fitted.Width; window.MinHeight = window.MaxHeight = fitted.Height;
+        await UntilAsync(() => Math.Abs(window.ActualWidth - fitted.Width) < 1 && Math.Abs(window.ActualHeight - fitted.Height) < 1);
         window.UpdateLayout();
     }
+    private static Rect BoundsIn(FrameworkElement element, Visual ancestor) =>
+        element.TransformToVisual(ancestor).TransformBounds(new Rect(element.RenderSize));
 
     private static async Task ClickAsync(ButtonBase element)
     {
         element.UpdateLayout();
         Assert.True(element.IsVisible && element.IsEnabled, $"{element.Name} must be available for a native click.");
+        // The fixed window intentionally scrolls. Reach offscreen controls through the viewer before native input.
+        element.BringIntoView(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         var at = element.PointToScreen(new Point(element.ActualWidth / 2, element.ActualHeight / 2));
         Assert.True(SetCursorPos((int)at.X, (int)at.Y));
         try { await UntilAsync(() => element.IsMouseOver); } // Let WPF process the pointer move before sending button input.
@@ -116,22 +130,22 @@ public sealed class DesktopTests
     }
 
     [Fact]
-    public Task ThirtyFiveCardsFitInSeparateNumericColumnsAndSettingsKeepTheGrid() => OnUiThreadAsync(async () =>
+    public Task FixedWindowRetainsSeparateNumericColumnsAndOnlyTrackingSettingsShowsTheGrid() => OnUiThreadAsync(async () =>
     {
         var h = Samples(80); var main = new MainWindow(h.Engine); main.Show(); Motion.SetEnabled(main, false);
         try
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30);
-            Assert.Equal(WindowState.Maximized, main.WindowState);
-            Assert.Equal(2, PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures.Count);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            Assert.False(((Button)main.FindName("MaximizeButton")).IsEnabled);
             await ResizeAsync(main, 1920, 1040);
             Assert.Single(PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures);
-            Assert.Equal(3, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
+            Assert.Equal(5, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
             var scroll = (ScrollViewer)main.FindName("PageScroll");
             var cards = (ItemsControl)main.FindName("MemberCards"); var favorites = (ItemsControl)main.FindName("FavoriteCards");
             Assert.Equal(16, cards.Items.Count); Assert.Equal(14, ((ItemsControl)main.FindName("FreeCards")).Items.Count); Assert.Equal(5, favorites.Items.Count);
-            Assert.Equal(264, cards.ActualHeight); Assert.Equal(44, favorites.ActualHeight);
-            Assert.True(scroll.ScrollableHeight < 1); Assert.True(scroll.ExtentHeight < 800);
+            Assert.Equal(176, cards.ActualHeight); Assert.Equal(44, favorites.ActualHeight);
+            Assert.True(scroll.ScrollableHeight < 1); // All 35 live worlds fit in the fixed design.
             Assert.Empty(Children<ListBox>(main)); Assert.Empty(Children<DataGrid>(main));
             Assert.Null(((Grid)main.FindName("TitleBar")).Background);
             WorldTile Tile(int id) => Children<WorldTile>(main).Single(t => t.IsVisible && t.DataContext is WorldCardModel w && w.Id == id);
@@ -152,10 +166,10 @@ public sealed class DesktopTests
                 var tiles = Children<WorldTile>(section).OrderBy(t => ((WorldCardModel)t.DataContext).Id).ToArray();
                 for (int i = 0; i < tiles.Length; i++)
                 {
-                    var (row, column) = WorldColumnLayout.Position(i, tiles.Length, 3);
+                    var (row, column) = WorldColumnLayout.Position(i, tiles.Length, main.ColumnCount);
                     var point = tiles[i].TranslatePoint(new Point(), section);
                     Assert.InRange(Math.Abs(point.Y - row * 44), 0, 1);
-                    Assert.InRange(Math.Abs(point.X - column * section.ActualWidth / 3), 0, 1);
+                    Assert.InRange(Math.Abs(point.X - column * Children<WorldColumnsPanel>(section).Single().ColumnPitch), 0, 1);
                 }
             }
             Preview(main, "dashboard-1080p.png");
@@ -167,16 +181,19 @@ public sealed class DesktopTests
             for (int tab = 0; tab < 3; tab++)
             {
                 tabs.SelectedIndex = tab; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
-                Assert.True(header.IsVisible); Assert.True(cards.IsVisible); Assert.True(favorites.IsVisible);
+                Assert.True(header.IsVisible); Assert.Equal(tab == 0, cards.IsVisible); Assert.Equal(tab == 0, favorites.IsVisible);
+                Assert.Equal(tab == 0, ((ItemsControl)main.FindName("FreeCards")).IsVisible);
+                Assert.Equal(tab == 0, ((StackPanel)main.FindName("WorldList")).IsVisible);
                 var selectedLabel = Children<TextBlock>((TabItem)tabs.Items[tab]).Single();
                 Assert.Equal(Color.FromRgb(224, 188, 85), ((SolidColorBrush)selectedLabel.Foreground).Color);
-                Assert.True(cards.TranslatePoint(new Point(), main).Y >= ((Grid)main.FindName("SettingsReveal")).TranslatePoint(new Point(), main).Y + ((Grid)main.FindName("SettingsReveal")).ActualHeight);
+                if (tab == 0)
+                    Assert.True(cards.TranslatePoint(new Point(), main).Y >= ((Grid)main.FindName("SettingsReveal")).TranslatePoint(new Point(), main).Y + ((Grid)main.FindName("SettingsReveal")).ActualHeight);
                 Assert.Equal(35, main.Model.Snapshot.LiveCount);
                 if (tab > 0)
                 {
                     var sheet = (Border)main.FindName(tab == 1 ? "ApplicationSheet" : "AboutSheet");
-                    var at = sheet.TranslatePoint(new Point(), main);
-                    Assert.InRange(Math.Abs(at.X + sheet.ActualWidth / 2 - main.ActualWidth / 2), 0, 10);
+                    var bounds = BoundsIn(sheet, main);
+                    Assert.InRange(Math.Abs(bounds.Left + bounds.Width / 2 - main.ActualWidth / 2), 0, 2);
                 }
                 Preview(main, $"settings-{tab}-1080p.png");
             }
@@ -236,11 +253,12 @@ public sealed class DesktopTests
                 Assert.InRange(frame.PixelWidth, 1, 32); Assert.InRange(frame.PixelHeight, 1, 32);
             }
             Assert.Equal(23, ((BitmapSource)((System.Windows.Controls.Image)Tile(301).FindName("ActivitySprite")).Source).PixelWidth);
-            var inactive = (WorldCardSurface)Tile(340).FindName("Surface"); SetCursorPos(1, 1);
+            var inactive = (WorldCardSurface)Tile(340).FindName("Surface");
+            inactive.BringIntoView(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); SetCursorPos(1, 1);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Assert.InRange(inactive.Opacity, .4, .5);
             var at = inactive.PointToScreen(new Point(inactive.ActualWidth / 2, inactive.ActualHeight / 2));
             SetCursorPos((int)at.X, (int)at.Y); await UntilAsync(() => inactive.IsMouseOver && inactive.Opacity > .8);
-            Assert.False(((DropShadowEffect)inactive.Effect).HasAnimatedProperties);
+            Assert.Null(inactive.Effect);
             await ClickAsync((ToggleButton)Tile(301).FindName("FavoriteToggle"));
             await UntilAsync(() => !main.Model.AllWorlds.Single(w => w.Id == 301).IsFavorite);
             await ClickAsync((ToggleButton)Tile(340).FindName("FavoriteToggle"));
@@ -261,12 +279,7 @@ public sealed class DesktopTests
         try
         {
             // Exercise the animated path even on runners configured for reduced motion. Restore the OS preference in finally.
-            Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(1), 2));
-            bool nativeAnimations = false;
-            Assert.True(SystemParametersInfoBoolean(0x1042, 0, ref nativeAnimations, 0));
-            Assert.True(nativeAnimations, "Windows must report client-area animation enabled before WPF can exercise it.");
-            SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
-            await UntilAsync(() => SystemParameters.ClientAreaAnimation);
+            await SetClientAnimationsAsync(true);
             await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
             bool animate = Motion.CanAnimate(main); Assert.True(animate);
             double originalY = ((ItemsControl)main.FindName("MemberCards")).TranslatePoint(new Point(), main).Y;
@@ -291,21 +304,34 @@ public sealed class DesktopTests
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded);
             await Task.Delay(120);
             var reveal = (Grid)main.FindName("SettingsReveal"); Assert.True(reveal.ClipToBounds); var content = (ContentPresenter)main.FindName("SettingsContent");
-            Assert.True(main.IsNavigating); Assert.InRange(reveal.ActualHeight, 1, content.DesiredSize.Height - 1);
+            Assert.True(main.IsNavigating); Assert.Equal(content.DesiredSize.Height, reveal.ActualHeight);
+            Assert.False(DependencyPropertyHelper.GetValueSource(reveal, FrameworkElement.HeightProperty).IsAnimated);
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
             var tracking = (Border)main.FindName("TrackingControlHost"); Assert.InRange(tracking.Opacity, .01, .99);
             Preview(main, "page-transition-application.png");
             await UntilAsync(() => !main.IsNavigating);
             Assert.True(reveal.ActualHeight > 250);
+            Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
             double applicationHeight = reveal.ActualHeight;
             main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.Loaded); await Task.Delay(120);
             var outgoing = (ContentPresenter)main.FindName("SettingsOutgoing");
             Assert.True(((TranslateTransform)outgoing.RenderTransform).Y > 0);
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
-            Assert.InRange(reveal.ActualHeight, Math.Min(applicationHeight, content.DesiredSize.Height) + 1, Math.Max(applicationHeight, content.DesiredSize.Height) - 1);
-            Preview(main, "page-transition-about.png");
+            Assert.Equal(Math.Max(applicationHeight, content.DesiredSize.Height), reveal.ActualHeight);
+            // Both fades are visible on screen while layout geometry stays fixed.
+            // Wait for the visual state before encoding a screenshot, which can consume part of the fade duration.
+            await UntilAsync(() => outgoing.Opacity is > .15 and < .85 && content.Opacity is > .05 and < .85);
+            Assert.True(main.IsNavigating);
+            Assert.InRange(outgoing.Opacity, .01, .99);
+            Assert.InRange(content.Opacity, .01, .99);
+            Preview(main, "page-transition-about-visible-fades.png");
             await UntilAsync(() => !main.IsNavigating);
+            Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); await UntilAsync(() => !main.IsNavigating);
+            main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.Loaded);
+            await ResizeAsync(main, 683, 640); await UntilAsync(() => !main.IsNavigating);
+            Assert.InRange(Math.Abs(reveal.ActualHeight - content.DesiredSize.Height), 0, 1);
+            await ResizeAsync(main, 1920, 1040); await UntilAsync(() => !main.IsNavigating);
             main.Model.ShowSettings = false; main.Model.ShowSettings = true;
             Motion.SetEnabled(main, false); // Also stop a transition already in flight.
             main.Model.ShowSettings = false; main.Model.ShowSettings = true;
@@ -319,7 +345,7 @@ public sealed class DesktopTests
                 return new ProbeResult(ProbeStatus.Success, 10);
             };
             Task scan = h.Engine.RecheckAsync(); await entered.Task; await UntilAsync(() => main.Model.Snapshot.IsScanning && main.Model.Snapshot.ScanCompleted > 0);
-            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(43, footer.ActualHeight);
+            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(15, footer.ActualHeight);
             var progress = (ProgressBar)main.FindName("ReviewProgress");
             Assert.Equal(1, progress.Opacity); Assert.InRange(progress.Value, 1, 39);
             Assert.All(Children<Border>(progress), border => Assert.Equal(new Thickness(0), border.BorderThickness));
@@ -330,9 +356,102 @@ public sealed class DesktopTests
         finally
         {
             await CloseAsync(main); await h.DisposeAsync();
-            Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(previousAnimations ? 1 : 0), 2));
-            SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
-            await UntilAsync(() => SystemParameters.ClientAreaAnimation == previousAnimations);
+            await SetClientAnimationsAsync(previousAnimations);
+        }
+    });
+
+    [Fact]
+    public Task HiddenWorldRevealAnimatesBothWaysAndMouseExitClearsClickedButtonStyles() => OnUiThreadAsync(async () =>
+    {
+        bool previousAnimations = SystemParameters.ClientAreaAnimation;
+        var h = Samples(80); var main = new MainWindow(h.Engine); main.Show();
+        try
+        {
+            await SetClientAnimationsAsync(true);
+            await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
+            main.Model.ShowSettings = true; await UntilAsync(() => !main.IsNavigating);
+            var button = (ToggleButton)main.FindName("ShowAllButton");
+            var reveal = (Grid)main.FindName("HiddenWorldsReveal");
+            var cards = (ItemsControl)main.FindName("HiddenCards");
+            var clip = (RectangleGeometry)main.FindName("HiddenWorldsClip");
+            var offset = (TranslateTransform)cards.RenderTransform;
+            var chevron = (RotateTransform)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).RenderTransform;
+            int probes = h.Probe.Hosts.Count;
+            await ClickAsync(button); await Task.Delay(60);
+            Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.InRange(clip.Rect.Height, 1, cards.DesiredSize.Height - 1);
+            Assert.Equal(cards.DesiredSize.Height, reveal.ActualHeight);
+            Assert.False(DependencyPropertyHelper.GetValueSource(reveal, FrameworkElement.HeightProperty).IsAnimated);
+            Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y < 0);
+            Assert.InRange(chevron.Angle, 1, 179);
+            Preview(main, "hidden-worlds-opening.png");
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            double expandedHeight = reveal.ActualHeight;
+            Assert.Equal(Math.Ceiling(cards.Items.Count / 5d) * 44, expandedHeight); Assert.Equal(180, chevron.Angle);
+            Assert.True(button.IsKeyboardFocused);
+            Assert.True(SetCursorPos(1, 1)); await UntilAsync(() => !button.IsMouseOver); await Task.Delay(200);
+            // A mouse click retains keyboard focus, but must not retain hover ink or scale.
+            Assert.True(button.IsKeyboardFocused); Assert.NotNull(button.FocusVisualStyle);
+            var neutral = Color.FromRgb(142, 151, 148);
+            Assert.Equal(neutral, ((SolidColorBrush)button.Foreground).Color);
+            Assert.Equal(neutral, ((SolidColorBrush)Children<TextBlock>(button).Single().Foreground).Color);
+            Assert.Equal(neutral, ((SolidColorBrush)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).Stroke).Color);
+            Assert.Equal(1, ((ScaleTransform)button.RenderTransform).ScaleX);
+            Preview(main, "hidden-worlds-expanded-pointer-away.png");
+            await ClickAsync(button); await Task.Delay(60);
+            Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.InRange(clip.Rect.Height, 1, expandedHeight - 1);
+            Assert.Equal(0, reveal.ActualHeight);
+            Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y > 0);
+            Preview(main, "hidden-worlds-closing.png");
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.False(reveal.IsVisible); Assert.Equal(0, reveal.Height); Assert.Equal(0, chevron.Angle);
+            Assert.True(SetCursorPos(1, 1)); await UntilAsync(() => !button.IsMouseOver); await Task.Delay(200);
+            Assert.Equal(neutral, ((SolidColorBrush)button.Foreground).Color);
+            main.Model.ShowAllWorlds = true; await Task.Delay(120);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.Equal(expandedHeight, reveal.ActualHeight); Assert.Equal(1, cards.Opacity);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            main.Model.ShowAllWorlds = true; await Task.Delay(120);
+            await ResizeAsync(main, 683, 640);
+            await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - cards.DesiredSize.Height) < .5);
+            Assert.Equal(expandedHeight, reveal.ActualHeight);
+            Assert.True(BoundsIn(reveal, main).Height < expandedHeight, "Smaller work areas scale the fixed layout rather than adding rows.");
+            await ResizeAsync(main, 1920, 1040);
+            await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - expandedHeight) < .5);
+            var scroll = (ScrollViewer)main.FindName("PageScroll");
+            scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var worlds = (StackPanel)main.FindName("WorldList");
+            double previousTop = worlds.TranslatePoint(new Point(), scroll).Y;
+            Assert.True(scroll.VerticalOffset > 100);
+            var previousCards = Children<WorldTile>(cards).Select(t => ((WorldCardModel)t.DataContext).Id).ToHashSet();
+            main.Model.ShowAllWorlds = false;
+            Assert.InRange(Math.Abs(worlds.TranslatePoint(new Point(), scroll).Y - previousTop), 0, 1);
+            Assert.True(previousCards.IsSubsetOf(Children<WorldTile>(cards).Select(t => ((WorldCardModel)t.DataContext).Id)),
+                "Changing the scroll extent must retain the outgoing viewport until its fade completes.");
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.Equal(scroll.ScrollableHeight, scroll.VerticalOffset);
+            Assert.Equal(0, ((TranslateTransform)main.FindName("WorldScrollOffset")).Y);
+            main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
+            // Leaving during a reveal cannot leave hidden cards on Application or About.
+            main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
+            Assert.False(cards.IsVisible); Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
+            main.Model.SelectedSettingsTab = 0; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
+            Assert.True(main.Model.ShowAllWorlds); Assert.True(cards.IsVisible);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            Motion.SetEnabled(main, false);
+            Assert.False(main.IsRevealingWorlds); Assert.False(reveal.IsVisible);
+            Assert.False(offset.HasAnimatedProperties); Assert.False(chevron.HasAnimatedProperties); Assert.False(clip.HasAnimatedProperties);
+            main.Model.ShowAllWorlds = true;
+            Assert.False(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.Equal(expandedHeight, reveal.Height); Assert.Equal(1, cards.Opacity);
+            Assert.Equal(probes, h.Probe.Hosts.Count);
+        }
+        finally
+        {
+            SetCursorPos(1, 1); await CloseAsync(main); await h.DisposeAsync();
+            await SetClientAnimationsAsync(previousAnimations);
         }
     });
 
@@ -372,13 +491,16 @@ public sealed class DesktopTests
     [Fact]
     public Task ReadingsKeepCardIdentityOrderScrollAndFocusWhileBackgrounded() => OnUiThreadAsync(async () =>
     {
-        var h = Samples(); var main = new MainWindow(h.Engine); var sentinel = new Window { Title = "Foreground sentinel", Width = 350, Height = 180 };
+        var h = Samples(321); var main = new MainWindow(h.Engine); var sentinel = new Window { Title = "Foreground sentinel", Width = 350, Height = 180 };
         main.Show();
         try
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30);
-            main.WindowState = WindowState.Normal; main.Width = 720; main.Height = 360; main.UpdateLayout();
-            var scroll = (ScrollViewer)main.FindName("PageScroll"); scroll.ScrollToVerticalOffset(240); main.UpdateLayout();
+            Motion.SetEnabled(main, false);
+            main.Model.ShowSettings = true; main.Model.ShowAllWorlds = true;
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
+            var scroll = (ScrollViewer)main.FindName("PageScroll"); scroll.ScrollToVerticalOffset(240);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
             Assert.True(scroll.ScrollableHeight > 0, "Use a viewport that actually exercises scrolling.");
             double offset = scroll.VerticalOffset; var cards = main.Model.Tracked.ToArray(); int changes = 0;
             main.Model.Tracked.CollectionChanged += (_, _) => changes++;
@@ -429,14 +551,15 @@ public sealed class DesktopTests
     });
 
     [Fact]
-    public Task ExistingOffscreenBoundsAreClampedAndStartupStillMaximizes() => OnUiThreadAsync(async () =>
+    public Task ExistingOffscreenBoundsAreClampedAndOldDimensionsDoNotOverrideFixedSize() => OnUiThreadAsync(async () =>
     {
         var h = new Harness(); h.Store.Settings = new AppSettings { Window = new(-50000, -50000, 1000, 600, false) };
         var main = new MainWindow(h.Engine); main.Show();
         try
         {
             await UntilAsync(() => main.Model.Snapshot.SettingsLoaded);
-            Assert.Equal(WindowState.Maximized, main.WindowState);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            Assert.Equal(FixedWindowLayout.DesignWidth, main.Width); Assert.Equal(FixedWindowLayout.DesignHeight, main.Height);
             main.WindowState = WindowState.Normal; main.UpdateLayout(); Assert.True(main.Left > -50000); Assert.True(main.Top > -50000);
             Assert.NotNull(main.Icon);
         }
@@ -512,7 +635,8 @@ public sealed class DesktopTests
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
             var cards = (ItemsControl)main.FindName(members ? "MemberCards" : "FreeCards");
-            Assert.Equal(30, cards.Items.Count); Assert.Equal(440, cards.ActualHeight);
+            Assert.Equal(30, cards.Items.Count); Assert.Equal(264, cards.ActualHeight);
+            Assert.Equal(5, Children<WorldTile>(cards).Select(tile => tile.TranslatePoint(new Point(), cards).X).Distinct().Count());
             Assert.False(members ? main.Model.HasFreeToPlay : main.Model.HasMembers);
             Assert.True(((ScrollViewer)main.FindName("PageScroll")).ScrollableHeight < 1);
             Preview(main, members ? "dashboard-all-members.png" : "dashboard-all-free.png");
@@ -559,7 +683,7 @@ public sealed class DesktopTests
             var monitor = new NativeMonitorInfo { Size = Marshal.SizeOf<NativeMonitorInfo>() };
             Assert.True(ReadMonitorInfo(MonitorFromWindow(handle, 2), ref monitor));
             Assert.True(GetClientRect(handle, out var client)); var origin = new ClientPoint(); Assert.True(ClientToScreen(handle, ref origin));
-            await Task.Delay(80); DwmFlush(); DesktopPreview("desktop-taskbar-maximized.png");
+            await Task.Delay(80); DwmFlush(); DesktopPreview("desktop-fixed-window.png");
             System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "ui-preview", "native-frame.txt"),
                 $"DWM outer (includes invisible resize border): {frame.Left},{frame.Top},{frame.Right},{frame.Bottom}\nClient: {origin.X},{origin.Y},{origin.X + client.Right},{origin.Y + client.Bottom}\nNative work: {monitor.Work.Left},{monitor.Work.Top},{monitor.Work.Right},{monitor.Work.Bottom}\nWPF work: {SystemParameters.WorkArea}\nWPF bounds: {main.Left},{main.Top},{main.ActualWidth},{main.ActualHeight}\nDPI: {VisualTreeHelper.GetDpi(main).DpiScaleX}");
             Assert.True(origin.X >= monitor.Work.Left && origin.Y >= monitor.Work.Top && origin.X + client.Right <= monitor.Work.Right && origin.Y + client.Bottom <= monitor.Work.Bottom,
@@ -569,7 +693,11 @@ public sealed class DesktopTests
             await UntilAsync(() => main.WindowState == WindowState.Minimized);
             SystemCommands.RestoreWindow(main);
             for (int i = 0; i < 8; i++) { await Task.Delay(40); DesktopPreview($"restore-{i:00}.png"); }
-            await UntilAsync(() => main.WindowState == WindowState.Maximized);
+            await UntilAsync(() => main.WindowState == WindowState.Normal);
+            SystemCommands.MaximizeWindow(main); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            main.WindowState = WindowState.Maximized;
+            Assert.Equal(WindowState.Normal, main.WindowState);
         }
         finally
         {

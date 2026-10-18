@@ -17,21 +17,40 @@ namespace OsrsWorldPing.Desktop;
 
 public partial class MainWindow : Window
 {
-    public static readonly DependencyProperty ColumnCountProperty = DependencyProperty.Register(nameof(ColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(3));
+    static MainWindow() => WindowStateProperty.OverrideMetadata(typeof(MainWindow),
+        new FrameworkPropertyMetadata(WindowState.Normal, null, (_, value) =>
+            (WindowState)value == WindowState.Maximized ? WindowState.Normal : value));
+    public static readonly DependencyProperty ColumnCountProperty = DependencyProperty.Register(nameof(ColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(5));
     public static readonly DependencyProperty FavoriteColumnCountProperty = DependencyProperty.Register(nameof(FavoriteColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(5));
     public int FavoriteColumnCount { get => (int)GetValue(FavoriteColumnCountProperty); private set => SetValue(FavoriteColumnCountProperty, value); }
     public int ColumnCount { get => (int)GetValue(ColumnCountProperty); private set => SetValue(ColumnCountProperty, value); }
+    public static readonly DependencyProperty WorldGridWidthProperty = DependencyProperty.Register(nameof(WorldGridWidth), typeof(double), typeof(MainWindow), new PropertyMetadata(720d));
+    public static readonly DependencyProperty FavoriteGridWidthProperty = DependencyProperty.Register(nameof(FavoriteGridWidth), typeof(double), typeof(MainWindow), new PropertyMetadata(720d));
+    public double WorldGridWidth { get => (double)GetValue(WorldGridWidthProperty); private set => SetValue(WorldGridWidthProperty, value); }
+    public double FavoriteGridWidth { get => (double)GetValue(FavoriteGridWidthProperty); private set => SetValue(FavoriteGridWidthProperty, value); }
     public static readonly DependencyProperty IsNavigatingProperty = DependencyProperty.Register(nameof(IsNavigating), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
     public bool IsNavigating { get => (bool)GetValue(IsNavigatingProperty); private set => SetValue(IsNavigatingProperty, value); }
+    public static readonly DependencyProperty IsRevealingWorldsProperty = DependencyProperty.Register(nameof(IsRevealingWorlds), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+    public bool IsRevealingWorlds { get => (bool)GetValue(IsRevealingWorldsProperty); private set => SetValue(IsRevealingWorldsProperty, value); }
+    public static readonly DependencyProperty HasReturnControlSpaceProperty = DependencyProperty.Register(nameof(HasReturnControlSpace), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+    public bool HasReturnControlSpace { get => (bool)GetValue(HasReturnControlSpaceProperty); private set => SetValue(HasReturnControlSpaceProperty, value); }
     private readonly MonitoringEngine _engine;
     private readonly Forms.NotifyIcon _tray;
     private readonly System.Drawing.Icon _trayIcon;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private bool _exitRequested, _closing, _closed, _placementLoaded, _appliedTopmost, _ready;
+    private bool _fittingWindow;
+    private string? _fittedScreen;
+    private System.Drawing.Rectangle _fittedArea;
+    private DpiScale _fittedDpi;
     private HwndSource? _source;
-    private bool _lastShowSettings;
-    private int _navigationVersion, _trayTransitionVersion;
-    private double _contentTargetHeight, _gearRestAngle;
+    private bool _lastShowSettings, _lastShowHiddenWorlds;
+    private bool _backToTopVisible;
+    private int _backToTopVersion;
+    private int _navigationVersion, _hiddenWorldsVersion, _trayTransitionVersion;
+    private double _contentTargetHeight, _hiddenTargetHeight, _hiddenTargetWidth, _gearRestAngle;
+    private static readonly TimeSpan NavigationDuration = TimeSpan.FromMilliseconds(440);
+    private static readonly TimeSpan WorldRevealDuration = TimeSpan.FromMilliseconds(320);
     public DashboardViewModel Model { get; }
 
     public MainWindow(MonitoringEngine engine)
@@ -50,6 +69,7 @@ public partial class MainWindow : Window
         _tray = new Forms.NotifyIcon { Text = "OSRS World Ping", Icon = _trayIcon, ContextMenuStrip = menu };
         _tray.DoubleClick += (_, _) => Dispatcher.Invoke(() => RestoreFromTray(false));
         SizeChanged += (_, _) => UpdateLayoutDensity();
+        LocationChanged += (_, _) => FitIfMonitorChanged();
         SettingsTabs.SelectedIndex = 0;
         SettingsContent.Content = ((TabItem)SettingsTabs.Items[0]).Content;
         _ready = true;
@@ -65,6 +85,7 @@ public partial class MainWindow : Window
             SetWindowPos(_source.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0020 | 0x0001 | 0x0002 | 0x0004 | 0x0010);
         }
         UpdateLayoutDensity();
+        RestorePlacement(null);
         Model.Refresh();
         try { await _engine.StartAsync(); }
         catch (OperationCanceledException) { }
@@ -76,6 +97,11 @@ public partial class MainWindow : Window
         {
             _lastShowSettings = Model.ShowSettings;
             NavigateSettings();
+        }
+        if (_ready && !_closed && _lastShowHiddenWorlds != Model.ShowHiddenWorlds)
+        {
+            _lastShowHiddenWorlds = Model.ShowHiddenWorlds;
+            AnimateHiddenWorlds();
         }
         if (_closed || !Model.Snapshot.SettingsLoaded) return;
         if (!_placementLoaded)
@@ -94,37 +120,51 @@ public partial class MainWindow : Window
 
     private void RestorePlacement(WindowPlacement? placement)
     {
-        if (placement is not null)
+        if (_fittingWindow || _source is null || WindowState == WindowState.Minimized) return;
+        _fittingWindow = true;
+        try
         {
             var dpi = VisualTreeHelper.GetDpi(this);
-            var screen = Forms.Screen.FromRectangle(new System.Drawing.Rectangle(placement.X, placement.Y, placement.Width, placement.Height));
+            var screen = placement is null ? Forms.Screen.FromHandle(_source.Handle) :
+                Forms.Screen.FromPoint(new System.Drawing.Point(placement.X, placement.Y));
             var area = screen.WorkingArea;
             double availableWidth = area.Width / dpi.DpiScaleX, availableHeight = area.Height / dpi.DpiScaleY;
-            MinWidth = Math.Min(420, availableWidth); MinHeight = Math.Min(320, availableHeight);
-            double width = Math.Clamp(placement.Width / dpi.DpiScaleX, MinWidth, availableWidth);
-            double height = Math.Clamp(placement.Height / dpi.DpiScaleY, MinHeight, availableHeight);
+            var (width, height, scale) = FixedWindowLayout.Fit(availableWidth, availableHeight);
+            // Saved coordinates remain useful; old resizable/maximized dimensions no longer set the design size.
+            MinWidth = MinHeight = 0; MaxWidth = MaxHeight = double.PositiveInfinity;
             Width = width; Height = height;
-            Left = area.Left / dpi.DpiScaleX + Math.Clamp((placement.X - area.Left) / dpi.DpiScaleX, 0, Math.Max(0, availableWidth - width));
-            Top = area.Top / dpi.DpiScaleY + Math.Clamp((placement.Y - area.Top) / dpi.DpiScaleY, 0, Math.Max(0, availableHeight - height));
+            MinWidth = MaxWidth = width; MinHeight = MaxHeight = height;
+            Left = area.Left / dpi.DpiScaleX + (placement is null ? (availableWidth - width) / 2 :
+                Math.Clamp((placement.X - area.Left) / dpi.DpiScaleX, 0, Math.Max(0, availableWidth - width)));
+            Top = area.Top / dpi.DpiScaleY + (placement is null ? (availableHeight - height) / 2 :
+                Math.Clamp((placement.Y - area.Top) / dpi.DpiScaleY, 0, Math.Max(0, availableHeight - height)));
+            System.Windows.Shell.WindowChrome.GetWindowChrome(this).CaptionHeight = 40 * scale;
+            _fittedScreen = screen.DeviceName; _fittedArea = area; _fittedDpi = dpi;
         }
-        // Startup is already maximized in XAML. A late settings read must preserve
-        // a user-initiated minimize/restore rather than changing window state.
+        finally { _fittingWindow = false; }
     }
-
+    private void FitIfMonitorChanged()
+    {
+        if (!_ready || !IsLoaded || _closed || _fittingWindow || _source is null || WindowState != WindowState.Normal) return;
+        var screen = Forms.Screen.FromHandle(_source.Handle);
+        if (screen.DeviceName != _fittedScreen || screen.WorkingArea != _fittedArea || !VisualTreeHelper.GetDpi(this).Equals(_fittedDpi)) RefitCurrentWindow();
+    }
+    private void RefitCurrentWindow()
+    {
+        if (_source is not null && ReadWindowRect(_source.Handle, out var bounds))
+            RestorePlacement(new(bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top, false));
+    }
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        if (_ready && !_closed) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(RefitCurrentWindow));
+    }
     private void UpdateLayoutDensity()
     {
-        ColumnCount = Math.Clamp((int)(Math.Min(ActualWidth - 48, 1080) / 280), 1, 3);
-        bool narrow = ActualWidth < 1400;
-        SharedHeader.RowDefinitions[1].Height = new GridLength(narrow ? 42 : 0);
-        SharedHeader.RowDefinitions[0].Height = new GridLength(ActualWidth < 740 ? 94 : 72);
-        Metrics.MaxWidth = Math.Max(180, ActualWidth - 130);
-        Grid.SetColumnSpan(HeaderReadouts, narrow ? 3 : 1);
-        FavoriteColumnCount = Math.Clamp((int)(Math.Min(ActualWidth - 48, 1080) / 200), 1, 5);
-        double sideWidth = Math.Min(460, Math.Max(0, ActualWidth - 48) / 2);
-        SharedHeader.ColumnDefinitions[0].Width = SharedHeader.ColumnDefinitions[2].Width = new GridLength(sideWidth);
-        Grid.SetRow(SettingsTabs, narrow ? 1 : 0);
-        Grid.SetColumn(SettingsTabs, narrow ? 0 : 1);
-        Grid.SetColumnSpan(SettingsTabs, narrow ? 3 : 1);
+        // Keep the design at five columns; the Viewbox scales the whole fixed window together.
+        ColumnCount = FavoriteColumnCount = 5;
+        WorldGridWidth = FavoriteGridWidth = FixedWindowLayout.DesignWidth - 48;
+        Metrics.MaxWidth = FixedWindowLayout.DesignWidth - 200;
     }
 
     private void GearEnter(object sender, MouseEventArgs args) => RotateGear(_gearRestAngle + 90);
@@ -153,7 +193,6 @@ public partial class MainWindow : Window
         bool opening = Model.ShowSettings;
         double initialHeight = SettingsReveal.ActualHeight;
         IsNavigating = true;
-        SettingsReveal.BeginAnimation(HeightProperty, null); SettingsReveal.Height = initialHeight;
         object? target = opening ? ((TabItem)SettingsTabs.SelectedItem).Content : null;
         object? previous = SettingsContent.Content;
         double previousOpacity = SettingsContent.Opacity;
@@ -173,43 +212,137 @@ public partial class MainWindow : Window
         if (resetScroll) PageScroll.ScrollToTop();
         SettingsContent.Measure(new Size(Math.Max(1, PageFrame.ActualWidth), double.PositiveInfinity));
         _contentTargetHeight = opening ? SettingsContent.DesiredSize.Height : 0;
+        // Pages share an overlay deck. Reserve geometry once, then animate only retained rendering properties.
+        SettingsReveal.Height = Math.Max(initialHeight, _contentTargetHeight);
         if (!Motion.CanAnimate(this)) { StopNavigationMotion(); return; }
-        var duration = TimeSpan.FromMilliseconds(600);
-        var easing = new CubicEase { EasingMode = EasingMode.EaseInOut };
-        var reveal = new DoubleAnimation(initialHeight, _contentTargetHeight, duration) { EasingFunction = easing };
-        reveal.Completed += (_, _) => { if (version == _navigationVersion) FinishNavigation(); };
-        SettingsReveal.BeginAnimation(HeightProperty, reveal);
-        double distance = Math.Max(120, PageScroll.ActualHeight);
+        var duration = NavigationDuration;
+        var easing = new SineEase { EasingMode = EasingMode.EaseInOut };
+        double distance = Math.Clamp(PageScroll.ActualHeight * .06, 24, 48);
         if (changing)
         {
-            SettingsOutgoing.BeginAnimation(OpacityProperty, new DoubleAnimation(previousOpacity, 0, TimeSpan.FromMilliseconds(240)));
+            SettingsOutgoing.BeginAnimation(OpacityProperty, new DoubleAnimation(previousOpacity, 0, TimeSpan.FromMilliseconds(240)) { EasingFunction = easing });
             ((TranslateTransform)SettingsOutgoing.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
                 new DoubleAnimation(previousOffset, distance, TimeSpan.FromMilliseconds(240)) { EasingFunction = easing });
             SettingsContent.BeginAnimation(OpacityProperty, null); SettingsContent.Opacity = 0;
             var incomingOffset = (TranslateTransform)SettingsContent.RenderTransform;
             incomingOffset.BeginAnimation(TranslateTransform.YProperty, null); incomingOffset.Y = -distance;
-            SettingsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(420)) { BeginTime = TimeSpan.FromMilliseconds(180) });
+            SettingsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(360)) { BeginTime = TimeSpan.FromMilliseconds(80), EasingFunction = easing });
             ((TranslateTransform)SettingsContent.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(-distance, 0, TimeSpan.FromMilliseconds(420)) { BeginTime = TimeSpan.FromMilliseconds(180), EasingFunction = easing });
+                new DoubleAnimation(-distance, 0, TimeSpan.FromMilliseconds(360)) { BeginTime = TimeSpan.FromMilliseconds(80), EasingFunction = easing });
         }
-        SettingsTabs.BeginAnimation(OpacityProperty, new DoubleAnimation(opening ? 1 : 0, duration));
+        var navigation = new DoubleAnimation(opening ? 1 : 0, duration);
+        navigation.Completed += (_, _) => { if (version == _navigationVersion) FinishNavigation(); };
+        SettingsTabs.BeginAnimation(OpacityProperty, navigation);
         ((TranslateTransform)SettingsTabs.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(opening ? -8 : 0, opening ? 0 : 8, duration) { EasingFunction = easing });
+            new DoubleAnimation(opening ? 0 : 4, duration) { EasingFunction = easing });
         var rotation = (RotateTransform)Gear.RenderTransform;
         rotation.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(rotation.Angle, rotation.Angle + (opening ? 240 : -240), duration) { EasingFunction = easing });
         AnimateTrackingControl();
+        AnimateWorldList();
         EmitSparks(opening);
+    }
+    private void AnimateWorldList()
+    {
+        bool visible = Model.ShowWorldList;
+        var offset = WorldNavigationOffset;
+        if (visible && WorldList.Visibility == Visibility.Collapsed)
+        {
+            WorldList.BeginAnimation(OpacityProperty, null); WorldList.Opacity = 0;
+            offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = -24;
+        }
+        WorldList.Visibility = Visibility.Visible;
+        WorldList.IsHitTestVisible = visible;
+        WorldList.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(240))
+        { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? 0 : 24, TimeSpan.FromMilliseconds(240))
+        { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
+    }
+
+    private void HiddenCardsSizeChanged(object sender, SizeChangedEventArgs args)
+    {
+        if (!_ready || _closed || !Model.ShowHiddenWorlds) return;
+        // Defer until measurement finishes; a resize or catalogue update can retarget an in-flight reveal.
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (!_closed && Model.ShowHiddenWorlds && (Math.Abs(_hiddenTargetHeight - HiddenCards.DesiredSize.Height) > .5 ||
+                Math.Abs(_hiddenTargetWidth - HiddenWorldsReveal.ActualWidth) > .5))
+                AnimateHiddenWorlds();
+        }));
+    }
+    private void AnimateHiddenWorlds()
+    {
+        int version = ++_hiddenWorldsVersion;
+        bool opening = Model.ShowHiddenWorlds;
+        HiddenCards.RetainRealizedContainers = !opening;
+        double initialHeight = HiddenWorldsClip.Rect.Height;
+        double initialTop = WorldList.TranslatePoint(new Point(), PageScroll).Y;
+        double initialToggleTop = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - TrackingNavigationOffset.Y;
+        IsRevealingWorlds = true;
+        // Settle footer geometry at the same boundary as the catalogue extent. The retained
+        // world/toggle offsets below preserve outgoing pixels when a scrolled catalogue closes.
+        if (!opening) ResetReturnControl();
+        HiddenWorldsReveal.Visibility = Visibility.Visible;
+        HiddenWorldsReveal.IsHitTestVisible = opening;
+        HiddenWorldsReveal.UpdateLayout();
+        HiddenCards.Measure(new Size(Math.Max(1, HiddenWorldsReveal.ActualWidth), double.PositiveInfinity));
+        _hiddenTargetHeight = opening ? HiddenCards.DesiredSize.Height : 0;
+        _hiddenTargetWidth = Math.Max(1, HiddenWorldsReveal.ActualWidth);
+        // Change the scroll extent once. The clip reveals content without remeasuring the page every frame.
+        HiddenWorldsReveal.Height = _hiddenTargetHeight;
+        WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
+        PageScroll.UpdateLayout();
+        WorldScrollOffset.Y = initialTop - WorldList.TranslatePoint(new Point(), PageScroll).Y;
+        // Sticky state follows the target scroll position, while its visible movement follows the retained page.
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, null); TrackingRevealOffset.Y = 0;
+        UpdateScrollControls();
+        double toggleTarget = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - TrackingNavigationOffset.Y;
+        TrackingRevealOffset.Y = initialToggleTop - toggleTarget;
+        if (!Motion.CanAnimate(this)) { FinishHiddenWorlds(); return; }
+        var easing = new SineEase { EasingMode = EasingMode.EaseInOut };
+        var reveal = new RectAnimation(new Rect(0, 0, _hiddenTargetWidth, initialHeight),
+            new Rect(0, 0, _hiddenTargetWidth, _hiddenTargetHeight), WorldRevealDuration) { EasingFunction = easing };
+        reveal.Completed += (_, _) => { if (version == _hiddenWorldsVersion) FinishHiddenWorlds(); };
+        HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, reveal);
+        WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, WorldRevealDuration) { EasingFunction = easing });
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, WorldRevealDuration) { EasingFunction = easing });
+        HiddenCards.BeginAnimation(OpacityProperty, new DoubleAnimation(opening ? 1 : 0, WorldRevealDuration) { EasingFunction = easing });
+        var offset = (TranslateTransform)HiddenCards.RenderTransform;
+        if (opening && initialHeight < .5)
+        { offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = -16; }
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(opening ? 0 : 16, WorldRevealDuration) { EasingFunction = easing });
+        ((RotateTransform)ShowAllChevron.RenderTransform).BeginAnimation(RotateTransform.AngleProperty,
+            new DoubleAnimation(Model.ShowAllWorlds ? 180 : 0, WorldRevealDuration) { EasingFunction = easing });
+    }
+    private void FinishHiddenWorlds()
+    {
+        bool visible = Model.ShowHiddenWorlds;
+        if (!visible) ResetReturnControl();
+        HiddenCards.RetainRealizedContainers = false;
+        HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
+        HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, null);
+        HiddenWorldsClip.Rect = new Rect(0, 0, _hiddenTargetWidth, visible ? _hiddenTargetHeight : 0);
+        WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, null); TrackingRevealOffset.Y = 0;
+        HiddenWorldsReveal.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        HiddenWorldsReveal.IsHitTestVisible = visible;
+        HiddenCards.BeginAnimation(OpacityProperty, null); HiddenCards.Opacity = visible ? 1 : 0;
+        var offset = (TranslateTransform)HiddenCards.RenderTransform;
+        offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = 0;
+        var rotation = (RotateTransform)ShowAllChevron.RenderTransform;
+        rotation.BeginAnimation(RotateTransform.AngleProperty, null); rotation.Angle = Model.ShowAllWorlds ? 180 : 0;
+        IsRevealingWorlds = false;
+        UpdateScrollControls();
     }
     private void AnimateTrackingControl()
     {
         bool visible = Model.ShowWorldTracking;
         TrackingControlHost.Visibility = Visibility.Visible;
         TrackingControlHost.IsHitTestVisible = visible;
-        var offset = (TranslateTransform)TrackingControlHost.RenderTransform;
+        var offset = TrackingNavigationOffset;
         double baseY = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - offset.Y;
         double distance = Math.Max(80, PageScroll.ActualHeight - baseY + TrackingControlHost.ActualHeight);
-        TrackingControlHost.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(600)));
-        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? distance : offset.Y, visible ? 0 : distance, TimeSpan.FromMilliseconds(600))
+        TrackingControlHost.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, NavigationDuration));
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? distance : offset.Y, visible ? 0 : distance, NavigationDuration)
         { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
     }
     internal void StopNavigationMotion()
@@ -217,11 +350,14 @@ public partial class MainWindow : Window
         if (!_ready || _closed) return;
         ++_navigationVersion;
         FinishNavigation();
+        ++_hiddenWorldsVersion;
+        FinishHiddenWorlds();
     }
     private void FinishNavigation()
     {
         bool opening = Model.ShowSettings;
-        SettingsReveal.BeginAnimation(HeightProperty, null);
+        SettingsContent.Measure(new Size(Math.Max(1, PageFrame.ActualWidth), double.PositiveInfinity));
+        _contentTargetHeight = opening ? SettingsContent.DesiredSize.Height : 0;
         SettingsReveal.Height = opening ? _contentTargetHeight : 0;
         SettingsContent.BeginAnimation(OpacityProperty, null); SettingsContent.Opacity = opening ? 1 : 0;
         SettingsTabs.BeginAnimation(OpacityProperty, null); SettingsTabs.Opacity = opening ? 1 : 0;
@@ -236,16 +372,118 @@ public partial class MainWindow : Window
         SettingsOutgoing.Content = null; SettingsOutgoing.Visibility = Visibility.Hidden;
         SettingsContent.Visibility = SettingsTabs.Visibility = opening ? Visibility.Visible : Visibility.Hidden;
         SettingsReveal.IsHitTestVisible = opening;
+        WorldList.BeginAnimation(OpacityProperty, null); WorldList.Opacity = Model.ShowWorldList ? 1 : 0;
+        WorldList.Visibility = Model.ShowWorldList ? Visibility.Visible : Visibility.Collapsed;
+        WorldList.IsHitTestVisible = Model.ShowWorldList;
+        var worldOffset = WorldNavigationOffset;
+        worldOffset.BeginAnimation(TranslateTransform.YProperty, null); worldOffset.Y = 0;
         TrackingControlHost.BeginAnimation(OpacityProperty, null); TrackingControlHost.Opacity = Model.ShowWorldTracking ? 1 : 0;
         TrackingControlHost.Visibility = Model.ShowWorldTracking ? Visibility.Visible : Visibility.Hidden;
         TrackingControlHost.IsHitTestVisible = Model.ShowWorldTracking;
-        var toggleOffset = (TranslateTransform)TrackingControlHost.RenderTransform;
+        var toggleOffset = TrackingNavigationOffset;
         toggleOffset.BeginAnimation(TranslateTransform.YProperty, null); toggleOffset.Y = 0;
         GearSparks.Children.Clear(); IsNavigating = false;
         var rotation = (RotateTransform)Gear.RenderTransform;
         double angle = rotation.Angle % 360;
         rotation.BeginAnimation(RotateTransform.AngleProperty, null); rotation.Angle = angle;
         _gearRestAngle = angle;
+        UpdateScrollControls();
+    }
+
+    private void PageScrollChanged(object sender, ScrollChangedEventArgs args)
+    {
+        // Nested controls can bubble ScrollChanged, so only respond to the page itself.
+        if (ReferenceEquals(args.OriginalSource, PageScroll)) UpdateScrollControls();
+    }
+    private void PageViewportChanged(object sender, SizeChangedEventArgs args) => UpdateScrollControls();
+    private void UpdateScrollControls()
+    {
+        if (!_ready || _closed) return;
+        double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y - WorldScrollOffset.Y - WorldNavigationOffset.Y
+            + (TrackingControlAnchor.ActualHeight - TrackingControlHost.ActualHeight) / 2;
+        double bottomEdge = Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight);
+        // The collapsed view keeps Show all close to the fixed bottom edge even with fewer favorites.
+        TrackingStickyOffset.Y = Model.ShowWorldTracking && !Model.ShowHiddenWorlds
+            ? bottomEdge : Math.Clamp(anchor, 0, bottomEdge);
+        bool pinned = Model.ShowWorldTracking && anchor < -.5;
+        // The sticky control has no plate. Clip the scrollable content below its own band so
+        // transparent controls cannot cover tiles. Change geometry only at the threshold/resize.
+        double top = pinned ? TrackingControlHost.ActualHeight : 0;
+        double bottom = Model.ShowWorldTracking && anchor > PageScroll.ActualHeight - TrackingControlHost.ActualHeight + .5
+            ? TrackingControlHost.ActualHeight : 0;
+        var clip = new Rect(0, top, Math.Max(0, PageScroll.ActualWidth), Math.Max(0, PageScroll.ActualHeight - top - bottom));
+        if (PageScroll.Clip is not RectangleGeometry geometry || geometry.Rect != clip)
+            PageScroll.Clip = new RectangleGeometry(clip);
+        SetBackToTopVisible(pinned && PageScroll.VerticalOffset > .5);
+    }
+    private void SetBackToTopVisible(bool visible)
+    {
+        if (_backToTopVisible == visible && Motion.CanAnimate(this)) return;
+        _backToTopVisible = visible;
+        if (visible) HasReturnControlSpace = true;
+        int version = ++_backToTopVersion;
+        BackToTopButton.IsHitTestVisible = visible;
+        BackToTopButton.Focusable = visible;
+        if (visible) BackToTopButton.Visibility = Visibility.Visible;
+        if (!Motion.CanAnimate(this))
+        {
+            BackToTopButton.BeginAnimation(OpacityProperty, null);
+            BackToTopButton.Opacity = visible ? 1 : 0;
+            BackToTopButton.Visibility = visible ? Visibility.Visible : Visibility.Hidden;
+            return;
+        }
+        var fade = new DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(180))
+        { EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut } };
+        fade.Completed += (_, _) =>
+        {
+            if (version != _backToTopVersion) return;
+            BackToTopButton.BeginAnimation(OpacityProperty, null);
+            BackToTopButton.Opacity = visible ? 1 : 0;
+            if (!visible) BackToTopButton.Visibility = Visibility.Hidden;
+        };
+        BackToTopButton.BeginAnimation(OpacityProperty, fade);
+    }
+    private void ResetReturnControl()
+    {
+        ++_backToTopVersion; _backToTopVisible = false;
+        BackToTopButton.BeginAnimation(OpacityProperty, null); BackToTopButton.Opacity = 0;
+        BackToTopButton.Visibility = Visibility.Hidden;
+        BackToTopButton.IsHitTestVisible = BackToTopButton.Focusable = false;
+        HasReturnControlSpace = false;
+    }
+    private void BackToTopClick(object sender, RoutedEventArgs args)
+    {
+        SetBackToTopVisible(false);
+        PageScroll.ScrollToTop();
+        // Keep keyboard navigation at the destination rather than in a disappearing control.
+        SettingsTabs.Focus();
+    }
+    private void ScrollControlsMouseWheel(object sender, MouseWheelEventArgs args)
+    {
+        // These controls float outside the viewer; forward wheel input using WPF's own wheel policy.
+        args.Handled = true;
+        PageScroll.RaiseEvent(new MouseWheelEventArgs(args.MouseDevice, args.Timestamp, args.Delta)
+        { RoutedEvent = Mouse.MouseWheelEvent });
+    }
+    private void ScrollControlsKeyDown(object sender, KeyEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case Key.PageDown: PageScroll.PageDown(); break;
+            case Key.PageUp: PageScroll.PageUp(); break;
+            case Key.Down: PageScroll.LineDown(); break;
+            case Key.Up: PageScroll.LineUp(); break;
+            case Key.Home: PageScroll.ScrollToTop(); break;
+            case Key.End: PageScroll.ScrollToBottom(); break;
+            default: return;
+        }
+        args.Handled = true;
+    }
+
+    private void LatestLogClick(object sender, RoutedEventArgs args)
+    {
+        var log = new DiagnosticsWindow(Model.Snapshot, Model.Version) { Owner = this };
+        log.ShowDialog();
     }
     private void EmitSparks(bool opening)
     {
@@ -256,7 +494,7 @@ public partial class MainWindow : Window
             var spark = new Ellipse { Width = i % 3 == 0 ? 3 : 2, Height = i % 3 == 0 ? 3 : 2,
                 Fill = new SolidColorBrush(i % 3 == 0 ? Color.FromRgb(255, 233, 168) : Color.FromRgb(224, 188, 85)), RenderTransform = offset };
             Canvas.SetLeft(spark, 31); Canvas.SetTop(spark, 52); GearSparks.Children.Add(spark);
-            var duration = TimeSpan.FromMilliseconds(420 + i % 4 * 50);
+            var duration = TimeSpan.FromMilliseconds(220 + i % 4 * 35);
             offset.BeginAnimation(TranslateTransform.XProperty, new DoubleAnimation(0, (opening ? -1 : 1) * (35 + i * 5), duration));
             offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, 4 + i % 5 * 10, duration) { AccelerationRatio = .6 });
             spark.BeginAnimation(OpacityProperty, new DoubleAnimation(.9, 0, duration));
@@ -265,6 +503,7 @@ public partial class MainWindow : Window
     private void MotionPreferenceChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName == nameof(SystemParameters.ClientAreaAnimation) && !SystemParameters.ClientAreaAnimation) StopNavigationMotion();
+        if (args.PropertyName == nameof(SystemParameters.WorkArea)) FitIfMonitorChanged();
     }
     private void OpenProfile(object sender, RoutedEventArgs args)
     {
@@ -275,7 +514,9 @@ public partial class MainWindow : Window
     private async void OnStateChanged(object? sender, EventArgs args)
     {
         int version = ++_trayTransitionVersion;
-        if (!_ready || _closed || WindowState != WindowState.Minimized || !Model.Snapshot.Settings.MinimizeToTray) return;
+        if (!_ready || _closed) return;
+        if (WindowState == WindowState.Normal) { FitIfMonitorChanged(); return; }
+        if (WindowState != WindowState.Minimized || !Model.Snapshot.Settings.MinimizeToTray) return;
         _tray.Visible = true;
         // Hide only after the native taskbar animation; hiding in WM_SIZE aborts DWM's transition.
         if (SystemParameters.MinimizeAnimation) await Task.Delay(350);
@@ -317,8 +558,6 @@ public partial class MainWindow : Window
         }
     }
     private void MinimizeClick(object sender, RoutedEventArgs args) => SystemCommands.MinimizeWindow(this);
-    private void MaximizeClick(object sender, RoutedEventArgs args) => ToggleMaximize();
-    private void ToggleMaximize() { if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this); else SystemCommands.MaximizeWindow(this); }
     private void CloseClick(object sender, RoutedEventArgs args) => Close();
     private void OpenLink(object sender, RequestNavigateEventArgs args)
     {
@@ -331,41 +570,14 @@ public partial class MainWindow : Window
     }
     private IntPtr WindowHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        // Standard maximized windows retain an invisible resize border outside rcWork.
-        // WindowChrome otherwise paints the client across that border and beneath the taskbar.
-        if (message == 0x0083 && wParam != IntPtr.Zero && IsZoomed(hwnd))
-        {
-            // The proposed bounds may already be on a different monitor from the current HWND.
-            var proposed = Marshal.PtrToStructure<NativeRect>(lParam);
-            if (GetMonitorInfo(MonitorFromRect(ref proposed, 2), out var monitor))
-            {
-                Marshal.StructureToPtr(monitor.Work, lParam, false);
-                handled = true; return IntPtr.Zero;
-            }
-        }
-        const int maxButton = 9;
-        if (_ready && message == 0x0084 && WindowState != WindowState.Minimized && MaximizeButton.IsVisible)
-        {
-            long packed = lParam.ToInt64();
-            var point = new Point((short)(packed & 0xffff), (short)((packed >> 16) & 0xffff));
-            var origin = MaximizeButton.PointToScreen(new Point());
-            var dpi = VisualTreeHelper.GetDpi(this);
-            if (new Rect(origin, new Size(MaximizeButton.ActualWidth * dpi.DpiScaleX, MaximizeButton.ActualHeight * dpi.DpiScaleY)).Contains(point))
-            { handled = true; return new IntPtr(maxButton); }
-        }
-        // HTMAXBUTTON preserves Windows 11's native snap-layout hover target.
-        if ((message == 0x00A1 || message == 0x00A2) && wParam.ToInt32() == maxButton)
-        { handled = true; if (message == 0x00A2) ToggleMaximize(); }
+        // Keep double-click, system-menu, keyboard, and native commands from maximizing or sizing this prototype.
+        if (message == 0x0112 && ((wParam.ToInt64() & 0xfff0) is 0xf030 or 0xf000))
+        { handled = true; return IntPtr.Zero; }
         return IntPtr.Zero;
     }
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
-    [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int Size; public NativeRect Monitor, Work; public uint Flags; }
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsZoomed(IntPtr window);
-    [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref NativeRect rectangle, uint flags);
-    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-    [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadMonitorInfo(IntPtr monitor, ref MonitorInfo info);
-    private static bool GetMonitorInfo(IntPtr handle, out MonitorInfo info)
-    { info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() }; return ReadMonitorInfo(handle, ref info); }
+    [DllImport("user32.dll", EntryPoint = "GetWindowRect")]
+    [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadWindowRect(IntPtr window, out NativeRect bounds);
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);

@@ -55,6 +55,7 @@
   <SolidColorBrush x:Key="Muted" Color="#B2ADA4"/>
   <SolidColorBrush x:Key="Gold" Color="#E0BC55"/>
   <SolidColorBrush x:Key="Silver" Color="#9DA5AF"/>
+  <SolidColorBrush x:Key="StickySurface" Color="#ED151B1E"/>
   <SolidColorBrush x:Key="ActivityInk" Color="#96978F"/>
   <SolidColorBrush x:Key="Line" Color="#60513B"/>
   <SolidColorBrush x:Key="Surface" Color="#EE202426"/>
@@ -81,11 +82,6 @@
       <Border Background="{TemplateBinding Background}" CornerRadius="1.5"><Grid x:Name="PART_Track" ClipToBounds="True"><Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" CornerRadius="1.5"/></Grid></Border>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="RevealToggle" TargetType="ToggleButton">
-    <Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#8E9794"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Padding" Value="20,5"/><Setter Property="local:Motion.HoverScale" Value="True"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
-    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter>
-    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}"/></Trigger></Style.Triggers>
-  </Style>
   <Style x:Key="FocusRing" TargetType="Control">
     <Setter Property="Template">
       <Setter.Value>
@@ -94,6 +90,11 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <Style x:Key="RevealToggle" TargetType="ToggleButton">
+    <Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#8E9794"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Padding" Value="20,5"/><Setter Property="local:Motion.HoverScale" Value="True"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter>
+    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource Ink}"/>
@@ -200,7 +201,7 @@
   </Style>
   <Style TargetType="TabItem">
     <Setter Property="Foreground" Value="{StaticResource Muted}"/>
-    <Setter Property="Padding" Value="22,12"/>
+    <Setter Property="Padding" Value="18,6"/>
     <Setter Property="FontSize" Value="15"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
     <Setter Property="local:Motion.HoverScale" Value="True"/>
@@ -275,8 +276,13 @@
       <Setter.Value>
         <ControlTemplate TargetType="ToggleButton">
           <Border Background="Transparent" CornerRadius="4">
-            <Path Width="14" Height="14" Stretch="Uniform" Fill="{TemplateBinding Foreground}" Data="M12,21 C9,18 1,13 1,7 C1,0 9,-1 12,5 C15,-1 23,0 23,7 C23,13 15,18 12,21 Z"/>
+            <Path x:Name="Heart" Width="14" Height="14" Stretch="Uniform" Fill="Transparent" Stroke="{TemplateBinding Foreground}" StrokeThickness="1" Data="M12,21 C9,18 1,13 1,7 C1,0 9,-1 12,5 C15,-1 23,0 23,7 C23,13 15,18 12,21 Z"/>
           </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Heart" Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
@@ -327,21 +333,38 @@
       <Setter.Value>
         <ControlTemplate TargetType="ScrollBar">
           <Grid Background="#32121B20">
-            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="{TemplateBinding Orientation}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
               <Track.DecreaseRepeatButton>
-                <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource ScrollPage}"/>
+                <RepeatButton x:Name="DecreasePage" Command="ScrollBar.PageUpCommand" Style="{StaticResource ScrollPage}"/>
               </Track.DecreaseRepeatButton>
               <Track.Thumb>
-                <Thumb MinHeight="24"/>
+                <Thumb x:Name="ScrollThumb" MinHeight="24"/>
               </Track.Thumb>
               <Track.IncreaseRepeatButton>
-                <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource ScrollPage}"/>
+                <RepeatButton x:Name="IncreasePage" Command="ScrollBar.PageDownCommand" Style="{StaticResource ScrollPage}"/>
               </Track.IncreaseRepeatButton>
             </Track>
           </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+              <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+              <Setter TargetName="ScrollThumb" Property="MinHeight" Value="0"/>
+              <Setter TargetName="ScrollThumb" Property="MinWidth" Value="24"/>
+              <Setter TargetName="DecreasePage" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+              <Setter TargetName="IncreasePage" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+    <Style.Triggers>
+      <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Width" Value="Auto"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="MinHeight" Value="10"/>
+        <Setter Property="MinWidth" Value="20"/>
+      </Trigger>
+    </Style.Triggers>
   </Style>
   <DataTemplate x:Key="WorldCard" DataType="{x:Type local:WorldCardModel}">
     <local:WorldTile/>

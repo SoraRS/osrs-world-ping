@@ -1,0 +1,48 @@
+<Window x:Class="OsrsWorldPing.Desktop.DiagnosticsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Latest log — OSRS World Ping" Width="1160" Height="640" MinWidth="360" MinHeight="280"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" Icon="{StaticResource AppMark}"
+        Background="#1B2428" Foreground="{StaticResource Ink}" FontFamily="Segoe UI" UseLayoutRounding="True">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+    <TextBlock Text="Latest log" Style="{StaticResource Heading}" HorizontalAlignment="Center" />
+    <TextBlock Grid.Row="1" Text="{Binding Summary}" TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource Muted}" Margin="0,0,0,14" />
+    <DataGrid x:Name="DiagnosticTable" Grid.Row="2" ItemsSource="{Binding Rows}" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#343F43" BorderBrush="#445055" Background="#192125" Foreground="{StaticResource Ink}" RowBackground="#192125" AlternatingRowBackground="#202B30" RowHeight="30" EnableRowVirtualization="True" EnableColumnVirtualization="True" SelectionMode="Extended" SelectionUnit="FullRow" ClipboardCopyMode="IncludeHeader" AutomationProperties.Name="Latest world diagnostic readings">
+      <DataGrid.Resources>
+        <Style TargetType="DataGridColumnHeader">
+          <Setter Property="Background" Value="#2C373C" />
+          <Setter Property="Foreground" Value="{StaticResource Gold}" />
+          <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style TargetType="DataGridCell">
+          <Setter Property="Padding" Value="8,4" />
+          <Setter Property="Template">
+            <Setter.Value><ControlTemplate TargetType="DataGridCell"><Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"><ContentPresenter /></Border></ControlTemplate></Setter.Value>
+          </Setter>
+          <Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#3E5057" /><Setter Property="Foreground" Value="White" /></Trigger></Style.Triggers>
+        </Style>
+      </DataGrid.Resources>
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="World" Binding="{Binding World}" Width="65" />
+        <DataGridTextColumn Header="Catalogue" Binding="{Binding Expected}" Width="125" />
+        <DataGridTextColumn Header="Latest reading" Binding="{Binding Reading}" Width="140" />
+        <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="100" />
+        <DataGridTextColumn Header="Checked (local)" Binding="{Binding CheckedAt}" Width="155" />
+        <DataGridTextColumn Header="Hostname" Binding="{Binding Host}" Width="220" />
+        <DataGridTextColumn Header="Stage" Binding="{Binding Stage}" Width="80" />
+        <DataGridTextColumn Header="Native result" Binding="{Binding NativeCode}" Width="155" />
+        <DataGridTextColumn Header="Server address" Binding="{Binding Address}" Width="150" />
+      </DataGrid.Columns>
+    </DataGrid>
+    <StackPanel Grid.Row="3" Margin="0,14,0,0">
+      <TextBlock Text="Snapshot when opened. Readings stay in memory; nothing is uploaded. Select rows and press Ctrl+C to copy." TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource Muted}" FontSize="12" />
+      <Button Content="Close" IsCancel="True" HorizontalAlignment="Center" Margin="0,10,0,0" />
+    </StackPanel>
+  </Grid>
+</Window>

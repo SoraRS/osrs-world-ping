@@ -35,6 +35,7 @@ public sealed class UiCommand(Func<Task> execute) : ICommand
 public sealed class WorldCardModel : ObservableModel
 {
     private WorldSnapshot _snapshot;
+    internal WorldInfo? LayoutWorld => _snapshot.World;
     private int _cutoff;
     public WorldCardModel(WorldSnapshot snapshot, DashboardViewModel owner)
     {
@@ -79,7 +80,7 @@ public sealed class WorldCardModel : ObservableModel
     public bool IsGood => HasWorld && _snapshot.LatestResult?.IsGood(_cutoff) == true;
     public string ReadingLabel => !HasWorld ? "Unavailable" : !_snapshot.IsTracked ? "Scan result" :
         _snapshot.IsScanResult ? "Initial reading" : "Live reading";
-    public string ReadingDetails => $"{ReadingLabel} · {(_snapshot.LastChecked is { } at ? at.ToLocalTime().ToString("g") : "Not checked yet")}" +
+    public string ReadingDetails => $"{ReadingLabel} · {Latency} · {(_snapshot.LastChecked is { } at ? at.ToLocalTime().ToString("g") : "Not checked yet")}" +
         (_snapshot.LatestResult?.Diagnostic is { } detail ? $" · {detail.Stage}: {detail.NativeCode}" : "") +
         (_snapshot.World?.Population < 0 ? " · Catalogue reports this world offline" : "");
     public string AccessibleDescription => $"{WorldLabel}, {Region}, {Membership}, {Activity}, {Latency}" +
@@ -122,12 +123,6 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
             catch (OperationCanceledException) { }
             catch (Exception error) { Feedback = $"Connection check failed: {error.Message}"; }
         });
-        CopyDiagnostics = new UiCommand(() =>
-        {
-            try { System.Windows.Clipboard.SetText(ConnectionDiagnostics); Feedback = "Diagnostics copied."; }
-            catch (System.Runtime.InteropServices.ExternalException) { Feedback = "The clipboard is busy. Try again."; }
-            return Task.CompletedTask;
-        });
         ResetDefaults = new UiCommand(ResetDefaultsAsync);
         ApplySettings = new UiCommand(ApplyAsync);
         _engine.Changed += OnEngineChanged;
@@ -146,6 +141,7 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
     public bool ShowDashboard => !ShowSettings;
     public int SelectedSettingsTab { get => _selectedSettingsTab; set { if (Set(ref _selectedSettingsTab, value)) { ClearFeedback(); Notify(null); } } }
     public bool ShowWorldTracking => ShowSettings && SelectedSettingsTab == 0;
+    public bool ShowWorldList => !ShowSettings || ShowWorldTracking;
     public bool ShowAllWorlds { get => _showAllWorlds; set { if (Set(ref _showAllWorlds, value)) Notify(null); } }
     public bool ShowHiddenWorlds => ShowWorldTracking && ShowAllWorlds;
     public string ShowAllLabel => ShowAllWorlds ? "Hide all" : "Show all";
@@ -167,6 +163,18 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
     public bool HasFavoriteFeedback => !string.IsNullOrEmpty(FavoriteFeedback);
     public bool HasNotice => Snapshot.Notice is not null;
     public string LiveCount => Snapshot.LiveCount.ToString();
+    public int FreeWorldCount => Snapshot.Worlds.Count(w => w.IsTracked && w.World is { Members: false });
+    public int FavoriteWorldCount => Snapshot.Worlds.Count(w => w.IsFavorite);
+    public ConnectionHealth Health => ConnectionHealth.From(Snapshot);
+    public string HealthText => Health.Text;
+    public string HealthDetail => Health.Detail;
+    public string HealthBrush => Health.State switch
+    {
+        ConnectionHealthState.Healthy => "#A9DFBE",
+        ConnectionHealthState.Issues => "#E3BD80",
+        ConnectionHealthState.Failures => "#FF9690",
+        _ => "#B2ADA4"
+    };
     public WorldCardModel? BestWorld => Snapshot.Worlds.Where(w => w.IsTracked && w.LatestResult is { Status: ProbeStatus.Success, RoundTripMilliseconds: >= 0 })
         .OrderBy(w => w.LatestResult!.RoundTripMilliseconds).ThenBy(w => w.Id)
         .Select(w => _models.GetValueOrDefault(w.Id)).FirstOrDefault();
@@ -196,7 +204,6 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
     public ICommand BackToWorlds { get; }
     public ICommand ToggleSettings { get; }
     public ICommand CheckConnection { get; }
-    public ICommand CopyDiagnostics { get; }
     public ICommand ResetDefaults { get; }
     public ICommand ApplySettings { get; }
 
