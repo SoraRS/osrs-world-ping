@@ -35,6 +35,7 @@ public sealed partial class DesktopTests
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
                 Assert.Equal(offset, panel.ColumnOffset);
                 Assert.InRange(Children<WorldTile>(cards).Count(), 1, 65);
+                Assert.All(Children<WorldTile>(cards), tile => Assert.True(BoundsIn(tile, main).Right <= BoundsIn(scroll, main).Right + 1));
             }
             Preview(main, "fixed-expanded-centered.png");
         }
@@ -68,6 +69,7 @@ public sealed partial class DesktopTests
             var sectionBounds = BoundsIn(sections, main);
             Assert.InRange(Math.Abs(sectionBounds.Left - (main.ActualWidth - sectionBounds.Right)), 0, 2);
             var cards = Children<WorldTile>((ItemsControl)main.FindName("MemberCards")).ToArray();
+            Assert.All(cards, tile => Assert.True(BoundsIn(tile, main).Right <= sectionBounds.Right + 1, "Tile hover surfaces must fit the centered footprint."));
             double inkLeft = cards.Min(tile => BoundsIn(Children<System.Windows.Shapes.Path>((ToggleButton)tile.FindName("FavoriteToggle")).Single(), main).Left);
             double inkRight = cards.Max(tile => BoundsIn((TextBlock)tile.FindName("LatencyValue"), main).Right);
             Assert.InRange(Math.Abs(inkLeft - (main.ActualWidth - inkRight)), 0, 2);
