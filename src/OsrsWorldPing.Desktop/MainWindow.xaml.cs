@@ -242,6 +242,7 @@ public partial class MainWindow : Window
     {
         int version = ++_hiddenWorldsVersion;
         bool opening = Model.ShowHiddenWorlds;
+        HiddenCards.RetainRealizedContainers = !opening;
         double initialHeight = HiddenWorldsClip.Rect.Height;
         double initialTop = WorldList.TranslatePoint(new Point(), PageScroll).Y;
         IsRevealingWorlds = true;
@@ -274,6 +275,7 @@ public partial class MainWindow : Window
     private void FinishHiddenWorlds()
     {
         bool visible = Model.ShowHiddenWorlds;
+        HiddenCards.RetainRealizedContainers = false;
         HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
         HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, null);
         HiddenWorldsClip.Rect = new Rect(0, 0, _hiddenTargetWidth, visible ? _hiddenTargetHeight : 0);

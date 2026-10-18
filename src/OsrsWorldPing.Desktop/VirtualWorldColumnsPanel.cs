@@ -59,7 +59,7 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
         {
             var view = InternalChildren[child];
             int index = owner.ItemContainerGenerator.IndexFromContainer(view);
-            if (index >= 0 && view.IsKeyboardFocusWithin) wanted.Add(index);
+            if (index >= 0 && (view.IsKeyboardFocusWithin || owner is RevealItemsControl { RetainRealizedContainers: true })) wanted.Add(index);
             if (wanted.Contains(index)) continue;
             var position = new GeneratorPosition(child, 0);
             if (generator is IRecyclingItemContainerGenerator recycling) recycling.Recycle(position, 1); else generator.Remove(position, 1);

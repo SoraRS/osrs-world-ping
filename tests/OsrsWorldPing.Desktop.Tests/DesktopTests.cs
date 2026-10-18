@@ -417,8 +417,11 @@ public sealed partial class DesktopTests
             var worlds = (StackPanel)main.FindName("WorldList");
             double previousTop = worlds.TranslatePoint(new Point(), scroll).Y;
             Assert.True(scroll.VerticalOffset > 100);
+            var previousCards = Children<WorldTile>(cards).Select(t => ((WorldCardModel)t.DataContext).Id).ToHashSet();
             main.Model.ShowAllWorlds = false;
             Assert.InRange(Math.Abs(worlds.TranslatePoint(new Point(), scroll).Y - previousTop), 0, 1);
+            Assert.True(previousCards.IsSubsetOf(Children<WorldTile>(cards).Select(t => ((WorldCardModel)t.DataContext).Id)),
+                "Changing the scroll extent must retain the outgoing viewport until its fade completes.");
             await UntilAsync(() => !main.IsRevealingWorlds);
             Assert.Equal(0, scroll.VerticalOffset);
             Assert.Equal(0, ((TranslateTransform)main.FindName("WorldScrollOffset")).Y);
