@@ -111,7 +111,7 @@ public sealed partial class DesktopTests
     });
 
     [Fact]
-    public Task FixedPrototypeCentersOccupiedWorldsCountsAndUnclippedFrameTabs() => OnUiThreadAsync(async () =>
+    public Task FixedPrototypeCentersOccupiedWorldsAndUnclippedFrameTabs() => OnUiThreadAsync(async () =>
     {
         var h = Samples(30);
         h.Store.Settings = new AppSettings();
@@ -130,8 +130,8 @@ public sealed partial class DesktopTests
             main.WindowState = WindowState.Maximized; Assert.Equal(WindowState.Normal, main.WindowState);
             SystemCommands.MaximizeWindow(main); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.Equal(WindowState.Normal, main.WindowState);
-            Assert.Equal("★ Members 29", ((TextBlock)main.FindName("MembersHeader")).Text);
-            Assert.Equal("☆ Free to play 1", ((TextBlock)main.FindName("FreeToPlayHeader")).Text);
+            Assert.Equal("★ Members", ((TextBlock)main.FindName("MembersHeader")).Text);
+            Assert.Equal("☆ Free to play", ((TextBlock)main.FindName("FreeToPlayHeader")).Text);
             Assert.DoesNotContain(Children<TextBlock>(main), text => text.Text == "WORLDS");
             var sections = (StackPanel)main.FindName("WorldSections");
             var sectionBounds = BoundsIn(sections, main);

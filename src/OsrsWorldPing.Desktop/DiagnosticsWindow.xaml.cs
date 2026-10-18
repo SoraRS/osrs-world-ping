@@ -22,9 +22,11 @@ public partial class DiagnosticsWindow : Window
         InitializeComponent();
         MaxWidth = SystemParameters.WorkArea.Width; MaxHeight = SystemParameters.WorkArea.Height;
         Width = Math.Min(Width, MaxWidth); Height = Math.Min(Height, MaxHeight);
+        var health = ConnectionHealth.From(snapshot);
+        string status = health.State == ConnectionHealthState.StableIssues ? $"OK · {health.Issues} unchanged issue responses" : health.Text;
         DataContext = new
         {
-            Summary = $"{version} · {ConnectionHealth.From(snapshot).Text}\nCatalogue: {snapshot.CatalogueFetchedAt?.ToLocalTime().ToString("g") ?? "unavailable"} · Snapshot: {snapshot.CapturedAt.ToLocalTime():g}",
+            Summary = $"{version} · {status}\nCatalogue: {snapshot.CatalogueFetchedAt?.ToLocalTime().ToString("g") ?? "unavailable"} · Snapshot: {snapshot.CapturedAt.ToLocalTime():g}",
             Rows = snapshot.Worlds.OrderBy(w => w.Id).Select(DiagnosticRow.From).ToArray()
         };
     }

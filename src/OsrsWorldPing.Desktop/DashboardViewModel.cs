@@ -170,7 +170,7 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
     public string HealthDetail => Health.Detail;
     public string HealthBrush => Health.State switch
     {
-        ConnectionHealthState.Healthy => "#A9DFBE",
+        ConnectionHealthState.Healthy or ConnectionHealthState.StableIssues => "#A9DFBE",
         ConnectionHealthState.Issues => "#E3BD80",
         ConnectionHealthState.Failures => "#FF9690",
         _ => "#B2ADA4"
@@ -292,7 +292,7 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
         try
         {
             await _engine.UpdatePreferencesAsync(cutoff, interval, AlwaysOnTop, MinimizeToTray, CloseToTray);
-            Feedback = "Settings applied. Check connection to find newly eligible worlds now.";
+            Feedback = "Settings applied. Refresh worlds to find newly eligible worlds now.";
         }
         catch (OperationCanceledException) { }
     }

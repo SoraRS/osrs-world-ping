@@ -29,25 +29,11 @@
           <Image Source="{StaticResource AppMark}" Width="19" Height="19" />
           <TextBlock Text="OSRS WORLD PING" FontSize="11" Foreground="#C6BDAA" VerticalAlignment="Center" Margin="9,0,0,0" />
         </StackPanel>
-        <StackPanel Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+        <StackPanel x:Name="WindowButtons" Orientation="Horizontal" Grid.Column="2" HorizontalAlignment="Right" shell:WindowChrome.IsHitTestVisibleInChrome="True">
           <Button x:Name="MinimizeButton" Style="{StaticResource IconButton}" Width="38" Padding="9" AutomationProperties.Name="Minimize" Click="MinimizeClick">
             <Path Data="M0,0 L12,0" Stroke="#DACCB3" StrokeThickness="1" Width="12" />
           </Button>
-          <Button x:Name="MaximizeButton" IsEnabled="False" ToolTip="Window size is fixed" Style="{StaticResource IconButton}" Width="38" Padding="9" AutomationProperties.Name="Maximize unavailable for fixed window">
-            <Path x:Name="MaximizeIcon" Stroke="#DACCB3" StrokeThickness="1" Width="13" Height="13" Stretch="Uniform">
-              <Path.Style>
-                <Style TargetType="Path">
-                  <Setter Property="Data" Value="M1,1 L12,1 L12,12 L1,12 Z" />
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
-                      <Setter Property="Data" Value="M4,1 L13,1 L13,10 L10,10 M1,4 L10,4 L10,13 L1,13 Z" />
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </Path.Style>
-            </Path>
-          </Button>
-          <Button Style="{StaticResource IconButton}" Width="38" Padding="9" AutomationProperties.Name="Close" Click="CloseClick">
+          <Button x:Name="CloseButton" Style="{StaticResource IconButton}" Width="38" Padding="9" AutomationProperties.Name="Close" Click="CloseClick">
             <Path Data="M0,0 L10,10 M10,0 L0,10" Stroke="#DACCB3" StrokeThickness="1" Width="11" Height="11" />
           </Button>
         </StackPanel>
@@ -71,6 +57,13 @@
                     <Setter Property="FontSize" Value="12" />
                     <Setter Property="HorizontalAlignment" Value="Center" />
                   </Style>
+                  <Style x:Key="TextAction" TargetType="Button" BasedOn="{StaticResource IconButton}">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="FontSize" Value="11" />
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}" /></Trigger></Style.Triggers>
+                  </Style>
                 </Border.Resources>
                 <StackPanel>
                   <TextBlock Text="Connection monitoring" Style="{StaticResource Heading}" FontSize="24" Margin="0,0,0,6" HorizontalAlignment="Center" />
@@ -79,7 +72,7 @@
                     <TextBlock Text="{Binding HealthText}" Foreground="{Binding HealthBrush}" FontSize="12" VerticalAlignment="Center" />
                   </StackPanel>
                   <Button x:Name="CheckConnectionButton" Style="{StaticResource CompactAction}" Content="Refresh worlds" Command="{Binding CheckConnection}" IsEnabled="{Binding CanCheckConnection}" Margin="0,0,0,4" />
-                  <Button x:Name="LatestLogButton" Style="{StaticResource CompactAction}" Content="Latest log" Click="LatestLogClick" Margin="0,0,0,10" />
+                  <Button x:Name="LatestLogButton" Style="{StaticResource TextAction}" Content="Latest log" Click="LatestLogClick" Margin="0,0,0,10" />
                   <StackPanel HorizontalAlignment="Center" TextBlock.TextAlignment="Center">
                     <StackPanel Width="180" Margin="0,0,0,8">
                       <TextBlock Text="Acceptable latency (ms)" Style="{StaticResource Label}" Margin="0,0,0,2" />
@@ -93,15 +86,7 @@
                     </StackPanel>
                   </StackPanel>
                   <Button x:Name="ApplySettingsButton" Style="{StaticResource CompactAction}" Content="Apply settings" Command="{Binding ApplySettings}" IsEnabled="{Binding CanApplySettings}" />
-                  <Button x:Name="ResetDefaultsButton" IsEnabled="{Binding Snapshot.SettingsLoaded}" Command="{Binding ResetDefaults}" Margin="0,2,0,0" Padding="0" FontSize="11" HorizontalAlignment="Center" AutomationProperties.Name="Reset to default">
-                    <Button.Style>
-                      <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
-                        <Setter Property="Foreground" Value="{StaticResource Muted}" />
-                        <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}" /></Trigger></Style.Triggers>
-                      </Style>
-                    </Button.Style>
-                    <TextBlock Text="Reset to default" />
-                  </Button>
+                  <Button x:Name="ResetDefaultsButton" Style="{StaticResource TextAction}" IsEnabled="{Binding Snapshot.SettingsLoaded}" Command="{Binding ResetDefaults}" Content="Reset to default" Margin="0,2,0,0" AutomationProperties.Name="Reset to default" />
                   <Grid Height="36">
                     <TextBlock local:Motion.Message="{Binding Feedback}" Foreground="{StaticResource Gold}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0" Opacity="0" TextAlignment="Center" />
                   </Grid>
@@ -245,7 +230,7 @@
                 </TransformGroup>
               </StackPanel.RenderTransform>
               <StackPanel Visibility="{Binding HasFavorites, Converter={StaticResource VisibleWhenTrue}}" Margin="0,4,0,8" MaxWidth="{Binding FavoriteGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Center">
-                <TextBlock x:Name="FavoritesHeader" Text="{Binding Favorites.Count, StringFormat=❤ Favorite {0}}" Foreground="#F27D8C" FontSize="12" Margin="11,0,0,5" />
+                <TextBlock x:Name="FavoritesHeader" Text="❤ Favorites" Foreground="#F27D8C" FontSize="12" Margin="11,0,0,5" />
                 <ItemsControl x:Name="FavoriteCards" ItemsSource="{Binding Favorites}" ItemTemplate="{StaticResource WorldCard}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -256,7 +241,7 @@
               </StackPanel>
               <StackPanel x:Name="WorldSections" MaxWidth="{Binding WorldGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Center">
               <StackPanel Margin="0,4,0,0" Visibility="{Binding HasMembers, Converter={StaticResource VisibleWhenTrue}}">
-                <TextBlock x:Name="MembersHeader" Text="{Binding Members.Count, StringFormat=★ Members {0}}" Foreground="{StaticResource Gold}" FontSize="12" Margin="9,0,0,5" />
+                <TextBlock x:Name="MembersHeader" Text="★ Members" Foreground="{StaticResource Gold}" FontSize="12" Margin="9,0,0,5" />
                 <ItemsControl x:Name="MemberCards" ItemsSource="{Binding Members}" ItemTemplate="{StaticResource WorldCard}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -274,7 +259,7 @@
                     </Style.Triggers>
                   </Style>
                 </StackPanel.Style>
-                <TextBlock x:Name="FreeToPlayHeader" Text="{Binding FreeToPlay.Count, StringFormat=☆ Free to play {0}}" Foreground="{StaticResource Silver}" FontSize="12" Margin="9,0,0,5" />
+                <TextBlock x:Name="FreeToPlayHeader" Text="☆ Free to play" Foreground="{StaticResource Silver}" FontSize="12" Margin="9,0,0,5" />
                 <ItemsControl x:Name="FreeCards" ItemsSource="{Binding FreeToPlay}" ItemTemplate="{StaticResource WorldCard}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>

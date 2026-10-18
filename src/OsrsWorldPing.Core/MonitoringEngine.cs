@@ -30,6 +30,7 @@ public sealed class MonitoringEngine : IAsyncDisposable
     private readonly IClock _clock;
     private readonly int _maximumConcurrency;
     private readonly Dictionary<int, bool> _manualTracking = [];
+    private readonly ConnectionResponseHistory _responseHistory = new();
     private HashSet<int> _trackedWorldIds = [];
     private Dictionary<int, WorldState> _worlds = [];
     private AppSettings _settings = new();
@@ -74,7 +75,8 @@ public sealed class MonitoringEngine : IAsyncDisposable
             string notice = string.Join(" ", new[] { _settingsNotice, _catalogueNotice }.OfType<string>());
             return new MonitorSnapshot(settings, worlds, _settingsLoaded, _isScanning, _scanCompleted,
                 _scanTotal, notice.Length > 0 ? notice : null, _catalogueFetchedAt,
-                _nextHiddenRecheckAt, _isRecheckingHidden, _clock.UtcNow);
+                _nextHiddenRecheckAt, _isRecheckingHidden, _clock.UtcNow)
+                { StableIssueResponses = _responseHistory.StableIssues };
         }
     }
 
@@ -160,6 +162,7 @@ public sealed class MonitoringEngine : IAsyncDisposable
                 AddMissingFavorites();
                 SelectTrackedWorlds();
                 _nextHiddenRecheckAt = _clock.UtcNow + HiddenRecheckInterval;
+                _responseHistory.RecordCompletedChecks(GetSnapshot().Worlds, discovered.Keys);
             }
             return true;
         }
@@ -217,6 +220,8 @@ public sealed class MonitoringEngine : IAsyncDisposable
                 SelectTrackedWorlds();
                 if (_catalogueFetchedAt is not null)
                     _nextHiddenRecheckAt = _clock.UtcNow + HiddenRecheckInterval;
+                _responseHistory.RecordCompletedChecks(GetSnapshot().Worlds,
+                    hidden.Where(entry => entry.State.Generation == entry.Generation).Select(entry => entry.State.Id));
             }
             return true;
         }
@@ -308,6 +313,7 @@ public sealed class MonitoringEngine : IAsyncDisposable
         {
             (WorldState State, int Generation)[] tracked;
             int policyVersion;
+            var checkedIds = new System.Collections.Concurrent.ConcurrentBag<int>();
             lock (_sync)
             {
                 if (_isScanning)
@@ -328,6 +334,7 @@ public sealed class MonitoringEngine : IAsyncDisposable
                         world.Result = result;
                         world.CheckedAt = _clock.UtcNow;
                         world.IsScanResult = false;
+                        checkedIds.Add(world.Id);
                         world.BadReadings = IsFavorite(world.Id) || result.IsGood(_settings.LatencyCutoffMs)
                             ? 0 : world.BadReadings + 1;
                         if (world.BadReadings >= _settings.RequiredBadReadings)
@@ -337,6 +344,9 @@ public sealed class MonitoringEngine : IAsyncDisposable
                         }
                     }
                 }).ConfigureAwait(false);
+            linked.Token.ThrowIfCancellationRequested();
+            lock (_sync)
+                _responseHistory.RecordCompletedChecks(GetSnapshot().Worlds, checkedIds);
         }
         finally
         {
