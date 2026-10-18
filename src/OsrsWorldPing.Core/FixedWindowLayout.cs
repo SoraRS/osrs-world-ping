@@ -4,7 +4,7 @@ namespace OsrsWorldPing.Core;
 public static class FixedWindowLayout
 {
     public const double DesignWidth = 768;
-    public const double DesignHeight = 930;
+    public const double DesignHeight = 660;
 
     public static (double Width, double Height, double Scale) Fit(double workWidth, double workHeight)
     {

@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     public bool IsNavigating { get => (bool)GetValue(IsNavigatingProperty); private set => SetValue(IsNavigatingProperty, value); }
     public static readonly DependencyProperty IsRevealingWorldsProperty = DependencyProperty.Register(nameof(IsRevealingWorlds), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
     public bool IsRevealingWorlds { get => (bool)GetValue(IsRevealingWorldsProperty); private set => SetValue(IsRevealingWorldsProperty, value); }
+    public static readonly DependencyProperty HasReturnControlSpaceProperty = DependencyProperty.Register(nameof(HasReturnControlSpace), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+    public bool HasReturnControlSpace { get => (bool)GetValue(HasReturnControlSpaceProperty); private set => SetValue(HasReturnControlSpaceProperty, value); }
     private readonly MonitoringEngine _engine;
     private readonly Forms.NotifyIcon _tray;
     private readonly System.Drawing.Icon _trayIcon;
@@ -276,6 +278,9 @@ public partial class MainWindow : Window
         double initialTop = WorldList.TranslatePoint(new Point(), PageScroll).Y;
         double initialToggleTop = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - TrackingNavigationOffset.Y;
         IsRevealingWorlds = true;
+        // Settle footer geometry at the same boundary as the catalogue extent. The retained
+        // world/toggle offsets below preserve outgoing pixels when a scrolled catalogue closes.
+        if (!opening) ResetReturnControl();
         HiddenWorldsReveal.Visibility = Visibility.Visible;
         HiddenWorldsReveal.IsHitTestVisible = opening;
         HiddenWorldsReveal.UpdateLayout();
@@ -311,6 +316,7 @@ public partial class MainWindow : Window
     private void FinishHiddenWorlds()
     {
         bool visible = Model.ShowHiddenWorlds;
+        if (!visible) ResetReturnControl();
         HiddenCards.RetainRealizedContainers = false;
         HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
         HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, null);
@@ -395,12 +401,17 @@ public partial class MainWindow : Window
         if (!_ready || _closed) return;
         double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y - WorldScrollOffset.Y - WorldNavigationOffset.Y
             + (TrackingControlAnchor.ActualHeight - TrackingControlHost.ActualHeight) / 2;
-        TrackingStickyOffset.Y = Math.Clamp(anchor, 0, Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight));
+        double bottomEdge = Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight);
+        // The collapsed view keeps Show all close to the fixed bottom edge even with fewer favorites.
+        TrackingStickyOffset.Y = Model.ShowWorldTracking && !Model.ShowHiddenWorlds
+            ? bottomEdge : Math.Clamp(anchor, 0, bottomEdge);
         bool pinned = Model.ShowWorldTracking && anchor < -.5;
         // The sticky control has no plate. Clip the scrollable content below its own band so
         // transparent controls cannot cover tiles. Change geometry only at the threshold/resize.
         double top = pinned ? TrackingControlHost.ActualHeight : 0;
-        var clip = new Rect(0, top, Math.Max(0, PageScroll.ActualWidth), Math.Max(0, PageScroll.ActualHeight - top));
+        double bottom = Model.ShowWorldTracking && anchor > PageScroll.ActualHeight - TrackingControlHost.ActualHeight + .5
+            ? TrackingControlHost.ActualHeight : 0;
+        var clip = new Rect(0, top, Math.Max(0, PageScroll.ActualWidth), Math.Max(0, PageScroll.ActualHeight - top - bottom));
         if (PageScroll.Clip is not RectangleGeometry geometry || geometry.Rect != clip)
             PageScroll.Clip = new RectangleGeometry(clip);
         SetBackToTopVisible(pinned && PageScroll.VerticalOffset > .5);
@@ -409,6 +420,7 @@ public partial class MainWindow : Window
     {
         if (_backToTopVisible == visible && Motion.CanAnimate(this)) return;
         _backToTopVisible = visible;
+        if (visible) HasReturnControlSpace = true;
         int version = ++_backToTopVersion;
         BackToTopButton.IsHitTestVisible = visible;
         BackToTopButton.Focusable = visible;
@@ -430,6 +442,14 @@ public partial class MainWindow : Window
             if (!visible) BackToTopButton.Visibility = Visibility.Hidden;
         };
         BackToTopButton.BeginAnimation(OpacityProperty, fade);
+    }
+    private void ResetReturnControl()
+    {
+        ++_backToTopVersion; _backToTopVisible = false;
+        BackToTopButton.BeginAnimation(OpacityProperty, null); BackToTopButton.Opacity = 0;
+        BackToTopButton.Visibility = Visibility.Hidden;
+        BackToTopButton.IsHitTestVisible = BackToTopButton.Focusable = false;
+        HasReturnControlSpace = false;
     }
     private void BackToTopClick(object sender, RoutedEventArgs args)
     {

@@ -62,6 +62,17 @@ public sealed partial class DesktopTests
             await ProfileAsync("show-all-cold-321-worlds", () => main.Model.ShowAllWorlds = true);
             await ProfileAsync("hide-all-321-worlds", () => main.Model.ShowAllWorlds = false);
             await ProfileAsync("show-all-warm-321-worlds", () => main.Model.ShowAllWorlds = true);
+            var scroll = (System.Windows.Controls.ScrollViewer)main.FindName("PageScroll");
+            scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            await UntilAsync(() => main.HasReturnControlSpace);
+            var worlds = (System.Windows.Controls.StackPanel)main.FindName("WorldList");
+            double initialTop = worlds.TranslatePoint(new Point(), scroll).Y;
+            await ProfileAsync("hide-all-from-bottom", () =>
+            {
+                main.Model.ShowAllWorlds = false;
+                Assert.InRange(Math.Abs(worlds.TranslatePoint(new Point(), scroll).Y - initialTop), 0, 1);
+            });
+            Assert.False(main.HasReturnControlSpace);
             Assert.All(profiles, profile => Assert.InRange(profile.LayoutUpdates, 0, 12));
             Assert.True(profiles.Single(p => p.Scenario == "show-all-cold-321-worlds").AllocatedBytes < 20_000_000,
                 "First reveal must not allocate the full catalogue's visual tree.");

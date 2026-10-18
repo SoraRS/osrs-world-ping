@@ -1,4 +1,4 @@
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:local="clr-namespace:OsrsWorldPing.Desktop" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="OsrsWorldPing.Desktop.MainWindow" UseLayoutRounding="True" SnapsToDevicePixels="True" Title="OSRS World Ping" Width="768" Height="930" MinWidth="420" MinHeight="320" WindowState="Normal" Background="#151B1E" Foreground="#EFE8DA" FontFamily="Segoe UI" Icon="{StaticResource AppMark}" WindowStyle="SingleBorderWindow" ResizeMode="CanMinimize" Loaded="OnLoaded" Closing="OnClosing" StateChanged="OnStateChanged" SourceInitialized="OnSourceInitialized">
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:local="clr-namespace:OsrsWorldPing.Desktop" xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="OsrsWorldPing.Desktop.MainWindow" UseLayoutRounding="True" SnapsToDevicePixels="True" Title="OSRS World Ping" Width="768" Height="660" MinWidth="420" MinHeight="320" WindowState="Normal" Background="#151B1E" Foreground="#EFE8DA" FontFamily="Segoe UI" Icon="{StaticResource AppMark}" WindowStyle="SingleBorderWindow" ResizeMode="CanMinimize" Loaded="OnLoaded" Closing="OnClosing" StateChanged="OnStateChanged" SourceInitialized="OnSourceInitialized">
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="40" ResizeBorderThickness="0" CornerRadius="0" GlassFrameThickness="0" UseAeroCaptionButtons="False" />
   </shell:WindowChrome.WindowChrome>
@@ -7,7 +7,7 @@
     <KeyBinding Key="Escape" Command="{Binding BackToWorlds}" />
   </Window.InputBindings>
   <Viewbox x:Name="WindowViewport" Stretch="Uniform">
-  <Grid x:Name="DesignRoot" Width="768" Height="930">
+  <Grid x:Name="DesignRoot" Width="768" Height="660">
     <Image Source="Assets/observatory.png" Stretch="UniformToFill" Opacity="0.95" IsHitTestVisible="False" />
     <Rectangle IsHitTestVisible="False">
       <Rectangle.Fill>
@@ -64,42 +64,48 @@
               <Border Height="0" />
             </TabItem>
             <TabItem Header="Application">
-              <Border x:Name="ApplicationSheet" Padding="20,14" MaxWidth="760" HorizontalAlignment="Center">
+              <Border x:Name="ApplicationSheet" Padding="16,8" MaxWidth="760" HorizontalAlignment="Center">
+                <Border.Resources>
+                  <Style x:Key="CompactAction" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                    <Setter Property="Padding" Value="10,4" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="HorizontalAlignment" Value="Center" />
+                  </Style>
+                </Border.Resources>
                 <StackPanel>
-                  <TextBlock Text="Connection monitoring" Style="{StaticResource Heading}" HorizontalAlignment="Center" />
-                  <Button x:Name="CheckConnectionButton" Content="Refresh worlds" Command="{Binding CheckConnection}" IsEnabled="{Binding CanCheckConnection}" Padding="12,8" HorizontalAlignment="Center" Margin="0,0,0,12" />
-                  <StackPanel x:Name="ConnectionHealth" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,8" ToolTip="{Binding HealthDetail}">
-                    <Ellipse Width="7" Height="7" Fill="{Binding HealthBrush}" Margin="0,0,7,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding HealthText}" Foreground="{Binding HealthBrush}" VerticalAlignment="Center" />
+                  <TextBlock Text="Connection monitoring" Style="{StaticResource Heading}" FontSize="24" Margin="0,0,0,6" HorizontalAlignment="Center" />
+                  <StackPanel x:Name="ConnectionHealth" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,6" ToolTip="{Binding HealthDetail}">
+                    <Ellipse Width="7" Height="7" Fill="{Binding HealthBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding HealthText}" Foreground="{Binding HealthBrush}" FontSize="12" VerticalAlignment="Center" />
                   </StackPanel>
-                  <Button x:Name="LatestLogButton" Content="Latest log" Click="LatestLogClick" HorizontalAlignment="Center" Margin="0,0,0,20" />
+                  <Button x:Name="CheckConnectionButton" Style="{StaticResource CompactAction}" Content="Refresh worlds" Command="{Binding CheckConnection}" IsEnabled="{Binding CanCheckConnection}" Margin="0,0,0,4" />
+                  <Button x:Name="LatestLogButton" Style="{StaticResource CompactAction}" Content="Latest log" Click="LatestLogClick" Margin="0,0,0,10" />
                   <StackPanel HorizontalAlignment="Center" TextBlock.TextAlignment="Center">
-                    <StackPanel Width="180" Margin="0,0,0,14">
-                      <TextBlock Text="Acceptable latency (ms)" Style="{StaticResource Label}" />
-                      <TextBox x:Name="CutoffInput" Text="{Binding Cutoff, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Latency cutoff in milliseconds" TextAlignment="Center" />
+                    <StackPanel Width="180" Margin="0,0,0,8">
+                      <TextBlock Text="Acceptable latency (ms)" Style="{StaticResource Label}" Margin="0,0,0,2" />
+                      <TextBox x:Name="CutoffInput" Width="120" HorizontalAlignment="Center" Padding="6,3" FontSize="12" Text="{Binding Cutoff, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Latency cutoff in milliseconds" TextAlignment="Center" />
                       <TextBlock Text="{Binding CutoffError}" Style="{StaticResource ValidationMessage}" Visibility="{Binding HasCutoffError, Converter={StaticResource VisibleWhenTrue}}" />
                     </StackPanel>
-                    <StackPanel Width="180" Margin="0,0,0,14">
-                      <TextBlock Text="Refresh interval (seconds)" Style="{StaticResource Label}" />
-                      <TextBox x:Name="IntervalInput" Text="{Binding Interval, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Refresh interval in seconds" TextAlignment="Center" />
+                    <StackPanel Width="180" Margin="0,0,0,10">
+                      <TextBlock Text="Refresh interval (seconds)" Style="{StaticResource Label}" Margin="0,0,0,2" />
+                      <TextBox x:Name="IntervalInput" Width="120" HorizontalAlignment="Center" Padding="6,3" FontSize="12" Text="{Binding Interval, UpdateSourceTrigger=PropertyChanged}" AutomationProperties.Name="Refresh interval in seconds" TextAlignment="Center" />
                       <TextBlock Text="{Binding IntervalError}" Style="{StaticResource ValidationMessage}" Visibility="{Binding HasIntervalError, Converter={StaticResource VisibleWhenTrue}}" />
                     </StackPanel>
                   </StackPanel>
-                  <TextBlock Text="Window &amp; tray" Style="{StaticResource Heading}" FontSize="23" Margin="0,0,0,12" HorizontalAlignment="Center" />
-                  <StackPanel HorizontalAlignment="Center" Margin="0,0,0,6">
-                    <CheckBox Content="Keep the window always on top" IsChecked="{Binding AlwaysOnTop}" Margin="0,0,0,8" />
-                    <CheckBox Content="Minimize to the system tray" IsChecked="{Binding MinimizeToTray}" Margin="0,0,0,8" />
-                    <CheckBox Content="Close to the system tray" IsChecked="{Binding CloseToTray}" Margin="0,0,0,14" />
-                  </StackPanel>
-                  <WrapPanel HorizontalAlignment="Center">
-                    <Button x:Name="ApplySettingsButton" Content="Apply settings" Command="{Binding ApplySettings}" IsEnabled="{Binding CanApplySettings}" Margin="0,0,10,0" />
-                    <Button x:Name="ResetDefaultsButton" IsEnabled="{Binding Snapshot.SettingsLoaded}" Content="Reset to default" Command="{Binding ResetDefaults}" />
-                  </WrapPanel>
-                  <Grid Height="44">
-                    <TextBlock local:Motion.Message="{Binding Feedback}" Foreground="{StaticResource Gold}" TextWrapping="Wrap" Margin="0,4,0,0" Opacity="0" TextAlignment="Center" />
+                  <Button x:Name="ApplySettingsButton" Style="{StaticResource CompactAction}" Content="Apply settings" Command="{Binding ApplySettings}" IsEnabled="{Binding CanApplySettings}" />
+                  <Button x:Name="ResetDefaultsButton" IsEnabled="{Binding Snapshot.SettingsLoaded}" Command="{Binding ResetDefaults}" Margin="0,2,0,0" Padding="0" FontSize="11" HorizontalAlignment="Center" AutomationProperties.Name="Reset to default">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                        <Setter Property="Foreground" Value="{StaticResource Muted}" />
+                        <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}" /></Trigger></Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                    <TextBlock Text="Reset to default" />
+                  </Button>
+                  <Grid Height="36">
+                    <TextBlock local:Motion.Message="{Binding Feedback}" Foreground="{StaticResource Gold}" TextWrapping="Wrap" FontSize="12" Margin="0,4,0,0" Opacity="0" TextAlignment="Center" />
                   </Grid>
-                  <TextBlock Text="{Binding Snapshot.Notice}" Foreground="#F0BB97" TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" Visibility="{Binding HasNotice, Converter={StaticResource VisibleWhenTrue}}" />
-
+                  <TextBlock Text="{Binding Snapshot.Notice}" Foreground="#F0BB97" TextWrapping="Wrap" TextAlignment="Center" FontSize="12" Margin="0,4,0,0" Visibility="{Binding HasNotice, Converter={StaticResource VisibleWhenTrue}}" />
                 </StackPanel>
               </Border>
             </TabItem>
@@ -293,7 +299,14 @@
                 <TextBlock Text="{Binding EmptyDescription}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,18" />
                 <Button Content="Open connection settings" Command="{Binding OpenConnectionSettings}" HorizontalAlignment="Center" />
               </StackPanel>
-              <Border x:Name="TrackingControlAnchor" Height="{Binding ActualHeight, ElementName=BackToTopGap}" />
+              <Border x:Name="TrackingControlAnchor">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <Setter Property="Height" Value="52" />
+                    <Style.Triggers><DataTrigger Binding="{Binding ShowHiddenWorlds}" Value="True"><Setter Property="Height" Value="85" /></DataTrigger></Style.Triggers>
+                  </Style>
+                </Border.Style>
+              </Border>
               <Grid x:Name="HiddenWorldsReveal" Height="0" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="{Binding WorldGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Stretch">
                 <Canvas>
                   <local:RevealItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
@@ -335,9 +348,17 @@
             </ToggleButton>
           </Border>
         </Grid>
-        <Grid x:Name="ReviewFooter" Grid.Row="2" Height="100" Margin="10,0,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">
+        <Grid x:Name="ReviewFooter" Grid.Row="2" Margin="10,0,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">
+          <Grid.Style>
+            <Style TargetType="Grid">
+              <Setter Property="Height" Value="15" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding HasReturnControlSpace, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" Value="True"><Setter Property="Height" Value="100" /></DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Grid.Style>
           <Grid.RowDefinitions>
-            <RowDefinition Height="85" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="15" />
           </Grid.RowDefinitions>
           <Grid x:Name="BackToTopGap" PreviewMouseWheel="ScrollControlsMouseWheel" PreviewKeyDown="ScrollControlsKeyDown">
@@ -348,7 +369,7 @@
             </StackPanel>
           </Button>
           </Grid>
-          <ProgressBar x:Name="ReviewProgress" VerticalAlignment="Bottom" Minimum="0" Maximum="{Binding ScanMaximum}" Value="{Binding Snapshot.ScanCompleted}" Height="3" Foreground="{StaticResource Gold}" Background="#343A3B" ToolTip="{Binding ScanStatus}">
+          <ProgressBar x:Name="ReviewProgress" Grid.Row="1" VerticalAlignment="Top" Margin="0,-3,0,0" Minimum="0" Maximum="{Binding ScanMaximum}" Value="{Binding Snapshot.ScanCompleted}" Height="3" Foreground="{StaticResource Gold}" Background="#343A3B" ToolTip="{Binding ScanStatus}">
             <ProgressBar.Style>
               <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
                 <Setter Property="Opacity" Value="0" />

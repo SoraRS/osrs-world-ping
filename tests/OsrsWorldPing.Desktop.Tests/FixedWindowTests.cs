@@ -30,7 +30,14 @@ public sealed partial class DesktopTests
             Assert.All(Children<WorldTile>(main), tile => Assert.InRange(tile.ActualWidth, 1, 144));
             Assert.InRange(members.TranslatePoint(new Point(), main).Y, 150, 220);
             Assert.InRange(freeHeader.TranslatePoint(new Point(), scroll).Y - members.TranslatePoint(new Point(0, members.ActualHeight), scroll).Y, 43.5, 44.5);
-            main.Model.ShowSettings = true; main.Model.ShowAllWorlds = true;
+            main.Model.ShowSettings = true;
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
+            var closedToggle = (ToggleButton)main.FindName("ShowAllButton");
+            Assert.InRange(main.ActualHeight - BoundsIn(closedToggle, main).Bottom, 18, 42);
+            Assert.False(main.HasReturnControlSpace);
+            Assert.True(scroll.ScrollableHeight < 1);
+            Preview(main, "compact-world-tracking-768x660.png");
+            main.Model.ShowAllWorlds = true;
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
             var hidden = (ItemsControl)main.FindName("HiddenCards");
             var host = (Border)main.FindName("TrackingControlHost");
@@ -38,8 +45,6 @@ public sealed partial class DesktopTests
             var back = (Button)main.FindName("BackToTopButton");
             var timestamp = (TextBlock)main.FindName("WorldsUpdatedTimestamp");
             double catalogueGap = hidden.TranslatePoint(new Point(), scroll).Y - free.TranslatePoint(new Point(0, free.ActualHeight), scroll).Y;
-            double footerGap = timestamp.TranslatePoint(new Point(), scroll).Y - scroll.ActualHeight;
-            Assert.InRange(Math.Abs(catalogueGap - footerGap), 0, 1);
             Assert.True(toggle.TranslatePoint(new Point(), scroll).Y >= free.TranslatePoint(new Point(0, free.ActualHeight), scroll).Y);
             Assert.True(toggle.TranslatePoint(new Point(0, toggle.ActualHeight), scroll).Y <= hidden.TranslatePoint(new Point(), scroll).Y);
             Assert.Equal(Colors.Transparent, ((SolidColorBrush)host.Background).Color);
@@ -47,6 +52,8 @@ public sealed partial class DesktopTests
             Preview(main, "five-columns-tracking-gaps.png");
             scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
             Assert.True(back.IsVisible);
+            double footerGap = timestamp.TranslatePoint(new Point(), scroll).Y - scroll.ActualHeight;
+            Assert.InRange(Math.Abs(catalogueGap - footerGap), 0, 1);
             Assert.True(back.TranslatePoint(new Point(), scroll).Y >= scroll.ActualHeight);
             Assert.True(back.TranslatePoint(new Point(0, back.ActualHeight), scroll).Y < timestamp.TranslatePoint(new Point(), scroll).Y);
             var viewportClip = Assert.IsType<RectangleGeometry>(scroll.Clip).Rect;
@@ -59,7 +66,7 @@ public sealed partial class DesktopTests
             }
             Preview(main, "five-columns-tracking-bottom.png");
             main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-            foreach (var area in new[] { (768d, 930d), (480d, 640d) })
+            foreach (var area in new[] { (768d, 660d), (480d, 640d) })
             {
                 await ResizeAsync(main, area.Item1, area.Item2);
                 var title = BoundsIn((StackPanel)main.FindName("AboutTitle"), main);
@@ -67,6 +74,9 @@ public sealed partial class DesktopTests
                 Assert.InRange(Math.Abs(title.Left + title.Width / 2 - main.ActualWidth / 2), 0, 1);
                 Assert.True(logo.Right < title.Left);
                 Preview(main, $"about-text-centered-{area.Item1}.png");
+                scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                Preview(main, $"about-bottom-{area.Item1}.png");
+                scroll.ScrollToTop(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             }
         }
         finally { await CloseAsync(main); await h.DisposeAsync(); }
@@ -113,7 +123,7 @@ public sealed partial class DesktopTests
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30); main.UpdateLayout();
             Assert.Equal(WindowState.Normal, main.WindowState); Assert.Equal(ResizeMode.CanMinimize, main.ResizeMode);
-            Assert.Equal(768, main.Width); Assert.Equal(930, main.Height);
+            Assert.Equal(768, main.Width); Assert.Equal(660, main.Height);
             Assert.Equal(main.MinWidth, main.MaxWidth); Assert.Equal(main.MinHeight, main.MaxHeight);
             var hwnd = new WindowInteropHelper(main).Handle;
             Assert.Equal(0L, GetWindowLongPtr(hwnd, -16).ToInt64() & (0x00040000 | 0x00010000));
@@ -132,7 +142,7 @@ public sealed partial class DesktopTests
             double inkRight = cards.Max(tile => BoundsIn((TextBlock)tile.FindName("LatencyValue"), main).Right);
             Assert.InRange(Math.Abs(inkLeft - (main.ActualWidth - inkRight)), 0, 2);
             Assert.True(((ScrollViewer)main.FindName("PageScroll")).ScrollableHeight < 1);
-            Preview(main, "fixed-dashboard-768x930.png");
+            Preview(main, "fixed-dashboard-768x660.png");
             var positions = cards.Select(tile => tile.TranslatePoint(new Point(), main)).ToArray();
             foreach (long reading in new long[] { 1, 29, 1999, 20 })
             {
@@ -148,6 +158,7 @@ public sealed partial class DesktopTests
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.Equal(positions, cards.Select(tile => tile.TranslatePoint(new Point(), main)));
             main.Model.ShowSettings = true; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.InRange(main.ActualHeight - BoundsIn((ToggleButton)main.FindName("ShowAllButton"), main).Bottom, 18, 42);
             var title = (Grid)main.FindName("TitleBar"); var tabs = (TabControl)main.FindName("SettingsTabs");
             var titleBounds = BoundsIn(title, main);
             var gear = (System.Windows.Shapes.Path)main.FindName("Gear"); var gearBounds = BoundsIn(gear, main);
@@ -167,7 +178,7 @@ public sealed partial class DesktopTests
                 Assert.Equal(2u, SendInput(2, input, Marshal.SizeOf<Input>()));
                 await Task.Delay(60); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 await UntilAsync(() => tabs.SelectedIndex == i && !main.IsNavigating);
-                Preview(main, $"fixed-settings-{i}-768x930.png");
+                Preview(main, $"fixed-settings-{i}-768x660.png");
             }
             string directory = Path.Combine(AppContext.BaseDirectory, "ui-preview"); Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(Path.Combine(directory, "fixed-layout-measurements.json"), JsonSerializer.Serialize(new

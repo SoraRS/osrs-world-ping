@@ -97,7 +97,7 @@ public sealed partial class DesktopTests
             Assert.Null(((Border)main.FindName("ApplicationSheet")).Background); Assert.Null(((Border)main.FindName("AboutSheet")).Background);
             Assert.Empty(Children<Expander>(main));
             var cutoff = (TextBox)main.FindName("CutoffInput"); var interval = (TextBox)main.FindName("IntervalInput");
-            Assert.InRange(cutoff.ActualWidth, 1, 180); Assert.Equal(cutoff.ActualWidth, interval.ActualWidth);
+            Assert.Equal(120, cutoff.ActualWidth); Assert.InRange(cutoff.ActualHeight, 20, 30); Assert.Equal(cutoff.ActualWidth, interval.ActualWidth);
             Assert.InRange(Math.Abs(cutoff.TranslatePoint(new Point(), main).X - interval.TranslatePoint(new Point(), main).X), 0, 1);
             Assert.True(interval.TranslatePoint(new Point(), main).Y > cutoff.TranslatePoint(new Point(), main).Y + cutoff.ActualHeight);
             var health = (StackPanel)main.FindName("ConnectionHealth");
@@ -105,6 +105,25 @@ public sealed partial class DesktopTests
             var healthBounds = BoundsIn(health, main);
             Assert.InRange(Math.Abs(healthBounds.Left + healthBounds.Width / 2 - main.ActualWidth / 2), 0, 2);
             Assert.Equal("Refresh worlds", ((Button)main.FindName("CheckConnectionButton")).Content);
+            var refresh = (Button)main.FindName("CheckConnectionButton");
+            var latest = (Button)main.FindName("LatestLogButton");
+            var apply = (Button)main.FindName("ApplySettingsButton");
+            var reset = (Button)main.FindName("ResetDefaultsButton");
+            Assert.True(BoundsIn(health, main).Bottom <= BoundsIn(refresh, main).Top - 4);
+            foreach (var control in new FrameworkElement[] { refresh, latest, apply, reset, cutoff, interval })
+            {
+                var bounds = BoundsIn(control, main);
+                Assert.InRange(Math.Abs(bounds.Left + bounds.Width / 2 - main.ActualWidth / 2), 0, 1);
+                Assert.InRange(bounds.Height, 10, 30); Assert.InRange(bounds.Width, 1, 120);
+            }
+            Assert.InRange(BoundsIn(reset, main).Top - BoundsIn(apply, main).Bottom, 1, 3);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)reset.Background).Color);
+            Assert.Equal(new Thickness(0), reset.BorderThickness);
+            Assert.InRange(BoundsIn(interval, main).Top - BoundsIn(cutoff, main).Bottom, 20, 30);
+            Assert.Empty(Children<CheckBox>(main));
+            Assert.DoesNotContain(Children<TextBlock>(main), text => text.Text == "Window & tray");
+            Assert.True(((ScrollViewer)main.FindName("PageScroll")).ScrollableHeight < 1);
+            Preview(main, "compact-application-768x660.png");
             // ShowDialog runs a nested dispatcher; let the test inspect and close it before the click returns.
             var click = Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>
                 ((Button)main.FindName("LatestLogButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent))));

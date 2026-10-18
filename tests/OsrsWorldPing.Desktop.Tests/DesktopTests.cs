@@ -345,7 +345,7 @@ public sealed partial class DesktopTests
                 return new ProbeResult(ProbeStatus.Success, 10);
             };
             Task scan = h.Engine.RecheckAsync(); await entered.Task; await UntilAsync(() => main.Model.Snapshot.IsScanning && main.Model.Snapshot.ScanCompleted > 0);
-            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(100, footer.ActualHeight);
+            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(15, footer.ActualHeight);
             var progress = (ProgressBar)main.FindName("ReviewProgress");
             Assert.Equal(1, progress.Opacity); Assert.InRange(progress.Value, 1, 39);
             Assert.All(Children<Border>(progress), border => Assert.Equal(new Thickness(0), border.BorderThickness));

@@ -127,8 +127,9 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
         double top = TranslatePoint(new Point(), content).Y + WorldColumnLayout.Position(index, owner.Items.Count, Columns).Row * RowHeight;
         double inset = (_scroll.Clip as RectangleGeometry)?.Rect.Top ?? 0;
         if (top < _scroll.VerticalOffset + inset) _scroll.ScrollToVerticalOffset(Math.Max(0, top - inset));
-        else if (top + RowHeight > _scroll.VerticalOffset + _scroll.ViewportHeight)
-            _scroll.ScrollToVerticalOffset(top + RowHeight - _scroll.ViewportHeight);
+        double bottom = (_scroll.Clip as RectangleGeometry)?.Rect.Bottom ?? _scroll.ViewportHeight;
+        if (top + RowHeight > _scroll.VerticalOffset + bottom)
+            _scroll.ScrollToVerticalOffset(top + RowHeight - bottom);
         InvalidateMeasure();
     }
     protected override void OnPreviewKeyDown(KeyEventArgs args)
