@@ -62,6 +62,12 @@ public sealed partial class DesktopTests
             await ProfileAsync("show-all-cold-321-worlds", () => main.Model.ShowAllWorlds = true);
             await ProfileAsync("hide-all-321-worlds", () => main.Model.ShowAllWorlds = false);
             await ProfileAsync("show-all-warm-321-worlds", () => main.Model.ShowAllWorlds = true);
+            Assert.All(profiles, profile => Assert.InRange(profile.LayoutUpdates, 0, 12));
+            Assert.True(profiles.Single(p => p.Scenario == "show-all-cold-321-worlds").AllocatedBytes < 20_000_000,
+                "First reveal must not allocate the full catalogue's visual tree.");
+        }
+        finally
+        {
             string directory = Path.Combine(AppContext.BaseDirectory, "ui-preview"); Directory.CreateDirectory(directory);
             await File.WriteAllTextAsync(Path.Combine(directory, "motion-profile.json"), JsonSerializer.Serialize(new
             {
@@ -71,7 +77,7 @@ public sealed partial class DesktopTests
                 Measurement = "UI rendering callback cadence and layout notifications, not GPU presentation or physical monitor FPS. No screenshot encoding during samples.",
                 Profiles = profiles
             }, new JsonSerializerOptions { WriteIndented = true }));
+            await CloseAsync(main); await h.DisposeAsync(); await SetClientAnimationsAsync(previousAnimations);
         }
-        finally { await CloseAsync(main); await h.DisposeAsync(); await SetClientAnimationsAsync(previousAnimations); }
     });
 }

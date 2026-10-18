@@ -52,8 +52,10 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
             int start = column * (count / Columns) + Math.Min(column, count % Columns);
             for (int row = firstRow; row <= Math.Min(lastRow, rows - 1); row++) wanted.Add(start + row);
         }
+        // Accessing InternalChildren connects a newly created items host to its generator.
+        var children = InternalChildren;
         var generator = ItemContainerGenerator;
-        for (int child = InternalChildren.Count - 1; child >= 0; child--)
+        for (int child = children.Count - 1; child >= 0; child--)
         {
             var view = InternalChildren[child];
             int index = owner.ItemContainerGenerator.IndexFromContainer(view);
@@ -94,6 +96,7 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
     protected override void OnItemsChanged(object sender, ItemsChangedEventArgs args)
     {
         base.OnItemsChanged(sender, args);
+        _ = InternalChildren;
         ItemContainerGenerator.RemoveAll();
         RemoveInternalChildRange(0, InternalChildren.Count);
         InvalidateMeasure();

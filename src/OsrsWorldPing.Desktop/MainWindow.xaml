@@ -249,19 +249,19 @@
           <Grid x:Name="PageDeck">
             <Grid x:Name="SettingsReveal" Height="0" VerticalAlignment="Top" ClipToBounds="True" Panel.ZIndex="2" IsHitTestVisible="False">
               <Canvas>
-                <ContentPresenter x:Name="SettingsOutgoing" VerticalAlignment="Top" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" Width="{Binding ActualWidth, ElementName=PageFrame}">
+                <ContentPresenter x:Name="SettingsOutgoing" VerticalAlignment="Top" SnapsToDevicePixels="False" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" Width="{Binding ActualWidth, ElementName=PageFrame}">
                   <ContentPresenter.RenderTransform>
                     <TranslateTransform />
                   </ContentPresenter.RenderTransform>
                 </ContentPresenter>
-                <ContentPresenter x:Name="SettingsContent" VerticalAlignment="Top" Opacity="0" Visibility="Hidden" SizeChanged="SettingsContentSizeChanged" Width="{Binding ActualWidth, ElementName=PageFrame}">
+                <ContentPresenter x:Name="SettingsContent" VerticalAlignment="Top" SnapsToDevicePixels="False" Opacity="0" Visibility="Hidden" SizeChanged="SettingsContentSizeChanged" Width="{Binding ActualWidth, ElementName=PageFrame}">
                   <ContentPresenter.RenderTransform>
                     <TranslateTransform />
                   </ContentPresenter.RenderTransform>
                 </ContentPresenter>
               </Canvas>
             </Grid>
-            <StackPanel x:Name="WorldList" VerticalAlignment="Top">
+            <StackPanel x:Name="WorldList" VerticalAlignment="Top" SnapsToDevicePixels="False">
               <StackPanel.RenderTransform>
                 <TransformGroup>
                   <TranslateTransform x:Name="WorldNavigationOffset" />

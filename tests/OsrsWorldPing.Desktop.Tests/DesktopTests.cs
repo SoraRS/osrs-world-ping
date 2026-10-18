@@ -321,6 +321,10 @@ public sealed partial class DesktopTests
             await UntilAsync(() => !main.IsNavigating);
             Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); await UntilAsync(() => !main.IsNavigating);
+            main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.Loaded);
+            await ResizeAsync(main, 683, 640); await UntilAsync(() => !main.IsNavigating);
+            Assert.InRange(Math.Abs(reveal.ActualHeight - content.DesiredSize.Height), 0, 1);
+            await ResizeAsync(main, 1920, 1040); await UntilAsync(() => !main.IsNavigating);
             main.Model.ShowSettings = false; main.Model.ShowSettings = true;
             Motion.SetEnabled(main, false); // Also stop a transition already in flight.
             main.Model.ShowSettings = false; main.Model.ShowSettings = true;

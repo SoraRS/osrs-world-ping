@@ -310,6 +310,8 @@ public partial class MainWindow : Window
     private void FinishNavigation()
     {
         bool opening = Model.ShowSettings;
+        SettingsContent.Measure(new Size(Math.Max(1, PageFrame.ActualWidth), double.PositiveInfinity));
+        _contentTargetHeight = opening ? SettingsContent.DesiredSize.Height : 0;
         SettingsReveal.Height = opening ? _contentTargetHeight : 0;
         SettingsContent.BeginAnimation(OpacityProperty, null); SettingsContent.Opacity = opening ? 1 : 0;
         SettingsTabs.BeginAnimation(OpacityProperty, null); SettingsTabs.Opacity = opening ? 1 : 0;
