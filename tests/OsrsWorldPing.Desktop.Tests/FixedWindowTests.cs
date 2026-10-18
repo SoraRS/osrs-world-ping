@@ -82,6 +82,13 @@ public sealed partial class DesktopTests
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 Assert.Equal(positions, cards.Select(tile => tile.TranslatePoint(new Point(), main)));
             }
+            h.Probe.Return(new(ProbeStatus.Unreachable)); await h.Engine.CheckTrackedWorldsAsync();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var failureBounds = BoundsIn(sections, main);
+            Assert.InRange(Math.Abs(failureBounds.Left - (main.ActualWidth - failureBounds.Right)), 0, 2);
+            h.Probe.Return(new(ProbeStatus.Success, 20)); await h.Engine.CheckTrackedWorldsAsync();
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Equal(positions, cards.Select(tile => tile.TranslatePoint(new Point(), main)));
             main.Model.ShowSettings = true; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             var title = (Grid)main.FindName("TitleBar"); var tabs = (TabControl)main.FindName("SettingsTabs");
             var titleBounds = BoundsIn(title, main);

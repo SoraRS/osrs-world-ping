@@ -11,17 +11,13 @@ public sealed class WorldColumnsPanel : Panel
         typeof(WorldColumnsPanel), new FrameworkPropertyMetadata(3, FrameworkPropertyMetadataOptions.AffectsMeasure), value => (int)value >= 1);
     public int Columns { get => (int)GetValue(ColumnsProperty); set => SetValue(ColumnsProperty, value); }
     public double ColumnPitch { get; private set; }
-    private double _rowHeight, _occupiedWidth;
-    private (object? Context, WorldInfo? World)[] _layoutItems = [];
+    private double _rowHeight;
     protected override Size MeasureOverride(Size availableSize)
     {
         double width = double.IsInfinity(availableSize.Width) ? Columns * 240 : availableSize.Width;
         double pitch = width / Columns;
-        var items = InternalChildren.Cast<FrameworkElement>().Select(child =>
-            ((object?)child.DataContext, (child.DataContext as WorldCardModel)?.LayoutWorld)).ToArray();
-        // Do not recenter on ordinary numeric updates. New membership/catalogue data remeasures the footprint.
-        if (pitch != ColumnPitch || !_layoutItems.SequenceEqual(items)) _occupiedWidth = 0;
-        _layoutItems = items; ColumnPitch = pitch;
+        ColumnPitch = pitch;
+        double occupiedWidth = 0;
         _rowHeight = 0;
         for (int i = 0; i < InternalChildren.Count; i++)
         {
@@ -30,10 +26,10 @@ public sealed class WorldColumnsPanel : Panel
             _rowHeight = Math.Max(_rowHeight, child.DesiredSize.Height);
             var (_, column) = WorldColumnLayout.Position(i, InternalChildren.Count, Columns);
             // Trim the unused tail of the last occupied column, including when fewer columns are populated.
-            // Grow for a longer failure label, but do not shrink/reflow repeatedly on recovery.
-            _occupiedWidth = Math.Max(_occupiedWidth, column * pitch + child.DesiredSize.Width);
+            // Numeric fields reserve their width. Failure labels can grow and recover without leaving a stale gutter.
+            occupiedWidth = Math.Max(occupiedWidth, column * pitch + child.DesiredSize.Width);
         }
-        return new Size(_occupiedWidth, Math.Ceiling((double)InternalChildren.Count / Columns) * _rowHeight);
+        return new Size(occupiedWidth, Math.Ceiling((double)InternalChildren.Count / Columns) * _rowHeight);
     }
     protected override Size ArrangeOverride(Size finalSize)
     {
