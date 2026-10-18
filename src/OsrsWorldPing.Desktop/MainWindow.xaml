@@ -331,10 +331,10 @@
               </Border>
               <Grid x:Name="HiddenWorldsReveal" Height="0" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="1080" HorizontalAlignment="Stretch">
                 <Canvas>
-                  <ItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
-                    <ItemsControl.Clip>
+                  <local:RevealItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
+                    <local:RevealItemsControl.RevealClip>
                       <RectangleGeometry x:Name="HiddenWorldsClip" Rect="0,0,0,0" />
-                    </ItemsControl.Clip>
+                    </local:RevealItemsControl.RevealClip>
                     <ItemsControl.RenderTransform>
                       <TranslateTransform />
                     </ItemsControl.RenderTransform>
@@ -343,7 +343,7 @@
                         <local:VirtualWorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                  </ItemsControl>
+                  </local:RevealItemsControl>
                 </Canvas>
               </Grid>
             </StackPanel>
