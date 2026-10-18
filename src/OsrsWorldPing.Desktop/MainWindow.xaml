@@ -300,7 +300,7 @@
                   </local:RevealItemsControl>
                 </Canvas>
               </Grid>
-              <Border Height="52" Visibility="{Binding ShowHiddenWorlds, Converter={StaticResource VisibleWhenTrue}}" />
+              <Border x:Name="CatalogueBottomSpacer" Height="0" />
             </StackPanel>
           </Grid>
         </ScrollViewer>
@@ -309,6 +309,7 @@
             <Border.RenderTransform>
               <TransformGroup>
                 <TranslateTransform x:Name="TrackingStickyOffset" />
+                <TranslateTransform x:Name="TrackingRevealOffset" />
                 <TranslateTransform x:Name="TrackingNavigationOffset" />
               </TransformGroup>
             </Border.RenderTransform>

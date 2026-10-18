@@ -95,8 +95,10 @@ public sealed partial class DesktopTests
                 Assert.True(labelBounds.Top >= titleBounds.Top && labelBounds.Bottom <= titleBounds.Bottom - 1);
                 var at = tab.PointToScreen(new Point(tab.ActualWidth / 2, tab.ActualHeight / 2));
                 Assert.True(SetCursorPos((int)at.X, (int)at.Y));
+                await UntilAsync(() => tab.IsMouseOver);
                 Input[] input = [new() { Data = new() { Mouse = new() { Flags = 0x0002 } } }, new() { Data = new() { Mouse = new() { Flags = 0x0004 } } }];
                 Assert.Equal(2u, SendInput(2, input, Marshal.SizeOf<Input>()));
+                await Task.Delay(60); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
                 await UntilAsync(() => tabs.SelectedIndex == i && !main.IsNavigating);
                 Preview(main, $"fixed-settings-{i}-768x930.png");
             }

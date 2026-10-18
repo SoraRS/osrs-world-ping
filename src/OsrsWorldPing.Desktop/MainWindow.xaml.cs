@@ -275,6 +275,7 @@ public partial class MainWindow : Window
         HiddenCards.RetainRealizedContainers = !opening;
         double initialHeight = HiddenWorldsClip.Rect.Height;
         double initialTop = WorldList.TranslatePoint(new Point(), PageScroll).Y;
+        double initialToggleTop = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - TrackingNavigationOffset.Y;
         IsRevealingWorlds = true;
         HiddenWorldsReveal.Visibility = Visibility.Visible;
         HiddenWorldsReveal.IsHitTestVisible = opening;
@@ -284,9 +285,15 @@ public partial class MainWindow : Window
         _hiddenTargetWidth = Math.Max(1, HiddenWorldsReveal.ActualWidth);
         // Change the scroll extent once. The clip reveals content without remeasuring the page every frame.
         HiddenWorldsReveal.Height = _hiddenTargetHeight;
+        CatalogueBottomSpacer.Height = opening ? 52 : 0;
         WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
         PageScroll.UpdateLayout();
         WorldScrollOffset.Y = initialTop - WorldList.TranslatePoint(new Point(), PageScroll).Y;
+        // Sticky state follows the target scroll position, while its visible movement follows the retained page.
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, null); TrackingRevealOffset.Y = 0;
+        UpdateScrollControls();
+        double toggleTarget = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - TrackingNavigationOffset.Y;
+        TrackingRevealOffset.Y = initialToggleTop - toggleTarget;
         if (!Motion.CanAnimate(this)) { FinishHiddenWorlds(); return; }
         var easing = new SineEase { EasingMode = EasingMode.EaseInOut };
         var reveal = new RectAnimation(new Rect(0, 0, _hiddenTargetWidth, initialHeight),
@@ -294,6 +301,7 @@ public partial class MainWindow : Window
         reveal.Completed += (_, _) => { if (version == _hiddenWorldsVersion) FinishHiddenWorlds(); };
         HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, reveal);
         WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, WorldRevealDuration) { EasingFunction = easing });
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, WorldRevealDuration) { EasingFunction = easing });
         HiddenCards.BeginAnimation(OpacityProperty, new DoubleAnimation(opening ? 1 : 0, WorldRevealDuration) { EasingFunction = easing });
         var offset = (TranslateTransform)HiddenCards.RenderTransform;
         if (opening && initialHeight < .5)
@@ -307,9 +315,11 @@ public partial class MainWindow : Window
         bool visible = Model.ShowHiddenWorlds;
         HiddenCards.RetainRealizedContainers = false;
         HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
+        CatalogueBottomSpacer.Height = visible ? 52 : 0;
         HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, null);
         HiddenWorldsClip.Rect = new Rect(0, 0, _hiddenTargetWidth, visible ? _hiddenTargetHeight : 0);
         WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
+        TrackingRevealOffset.BeginAnimation(TranslateTransform.YProperty, null); TrackingRevealOffset.Y = 0;
         HiddenWorldsReveal.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         HiddenWorldsReveal.IsHitTestVisible = visible;
         HiddenCards.BeginAnimation(OpacityProperty, null); HiddenCards.Opacity = visible ? 1 : 0;
@@ -386,7 +396,7 @@ public partial class MainWindow : Window
     private void UpdateScrollControls()
     {
         if (!_ready || _closed) return;
-        double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y;
+        double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y - WorldScrollOffset.Y - WorldNavigationOffset.Y;
         TrackingStickyOffset.Y = Math.Clamp(anchor, 0, Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight));
         bool pinned = Model.ShowWorldTracking && anchor < -.5;
         TrackingControlHost.Background = pinned ? (Brush)FindResource("StickySurface") : null;

@@ -65,7 +65,7 @@ public sealed partial class DesktopTests
             await UntilAsync(() => back.Visibility == Visibility.Hidden);
             // Closing the catalogue from its bottom keeps the same physical toggle available.
             scroll.ScrollToBottom(); await UntilAsync(() => back.Opacity == 1);
-            await ClickAsync(toggle); await UntilAsync(() => !main.IsRevealingWorlds);
+            await ClickAsync(toggle); await UntilAsync(() => !main.IsRevealingWorlds && back.Visibility == Visibility.Hidden);
             Assert.False(main.Model.ShowAllWorlds); Assert.True(toggle.IsVisible);
             Assert.Equal(Visibility.Hidden, back.Visibility);
             main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);

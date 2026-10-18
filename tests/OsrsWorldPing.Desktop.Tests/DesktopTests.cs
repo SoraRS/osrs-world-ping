@@ -416,7 +416,8 @@ public sealed partial class DesktopTests
             main.Model.ShowAllWorlds = true; await Task.Delay(120);
             await ResizeAsync(main, 683, 640);
             await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - cards.DesiredSize.Height) < .5);
-            Assert.True(reveal.ActualHeight > expandedHeight);
+            Assert.Equal(expandedHeight, reveal.ActualHeight);
+            Assert.True(BoundsIn(reveal, main).Height < expandedHeight, "Smaller work areas scale the fixed layout rather than adding rows.");
             await ResizeAsync(main, 1920, 1040);
             await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - expandedHeight) < .5);
             var scroll = (ScrollViewer)main.FindName("PageScroll");
@@ -430,7 +431,7 @@ public sealed partial class DesktopTests
             Assert.True(previousCards.IsSubsetOf(Children<WorldTile>(cards).Select(t => ((WorldCardModel)t.DataContext).Id)),
                 "Changing the scroll extent must retain the outgoing viewport until its fade completes.");
             await UntilAsync(() => !main.IsRevealingWorlds);
-            Assert.Equal(0, scroll.VerticalOffset);
+            Assert.Equal(scroll.ScrollableHeight, scroll.VerticalOffset);
             Assert.Equal(0, ((TranslateTransform)main.FindName("WorldScrollOffset")).Y);
             main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
             // Leaving during a reveal cannot leave hidden cards on Application or About.
