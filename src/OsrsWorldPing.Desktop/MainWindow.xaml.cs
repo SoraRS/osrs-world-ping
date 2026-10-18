@@ -403,6 +403,27 @@ public partial class MainWindow : Window
         // Keep keyboard navigation at the destination rather than in a disappearing control.
         SettingsTabs.Focus();
     }
+    private void ScrollControlsMouseWheel(object sender, MouseWheelEventArgs args)
+    {
+        // These controls float outside the viewer; forward wheel input using WPF's own wheel policy.
+        args.Handled = true;
+        PageScroll.RaiseEvent(new MouseWheelEventArgs(args.MouseDevice, args.Timestamp, args.Delta)
+        { RoutedEvent = Mouse.MouseWheelEvent });
+    }
+    private void ScrollControlsKeyDown(object sender, KeyEventArgs args)
+    {
+        switch (args.Key)
+        {
+            case Key.PageDown: PageScroll.PageDown(); break;
+            case Key.PageUp: PageScroll.PageUp(); break;
+            case Key.Down: PageScroll.LineDown(); break;
+            case Key.Up: PageScroll.LineUp(); break;
+            case Key.Home: PageScroll.ScrollToTop(); break;
+            case Key.End: PageScroll.ScrollToBottom(); break;
+            default: return;
+        }
+        args.Handled = true;
+    }
 
     private void LatestLogClick(object sender, RoutedEventArgs args)
     {

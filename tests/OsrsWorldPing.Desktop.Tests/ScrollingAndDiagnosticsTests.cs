@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Interop;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using OsrsWorldPing.Core;
@@ -33,6 +34,17 @@ public sealed partial class DesktopTests
             var toggle = (ToggleButton)main.FindName("ShowAllButton");
             double threshold = anchor.TranslatePoint(new Point(), scroll).Y;
             Assert.True(threshold > 100); Assert.Equal(Visibility.Hidden, back.Visibility);
+            Assert.True(toggle.Focus());
+            void KeyOnToggle(Key key) => toggle.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,
+                PresentationSource.FromVisual(main), Environment.TickCount, key) { RoutedEvent = Keyboard.PreviewKeyDownEvent });
+            KeyOnToggle(Key.PageDown); await UntilAsync(() => scroll.VerticalOffset > 0);
+            KeyOnToggle(Key.Home); await UntilAsync(() => scroll.VerticalOffset == 0);
+            var pointer = toggle.PointToScreen(new Point(toggle.ActualWidth / 2, toggle.ActualHeight / 2));
+            Assert.True(SetCursorPos((int)pointer.X, (int)pointer.Y)); await UntilAsync(() => toggle.IsMouseOver);
+            Input[] wheel = [new() { Data = new() { Mouse = new() { Flags = 0x0800, Data = unchecked((uint)-120) } } }];
+            Assert.Equal(1u, SendInput(1, wheel, Marshal.SizeOf<Input>()));
+            await UntilAsync(() => scroll.VerticalOffset > 0);
+            scroll.ScrollToTop(); await UntilAsync(() => scroll.VerticalOffset == 0);
             scroll.ScrollToVerticalOffset(threshold - 10); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.Equal(Visibility.Hidden, back.Visibility);
             scroll.ScrollToVerticalOffset(threshold + 150); await Task.Delay(65);
