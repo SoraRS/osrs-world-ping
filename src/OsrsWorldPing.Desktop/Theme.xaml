@@ -333,21 +333,38 @@
       <Setter.Value>
         <ControlTemplate TargetType="ScrollBar">
           <Grid Background="#32121B20">
-            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="Vertical" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+            <Track x:Name="PART_Track" IsDirectionReversed="True" Orientation="{TemplateBinding Orientation}" Minimum="{TemplateBinding Minimum}" Maximum="{TemplateBinding Maximum}" ViewportSize="{TemplateBinding ViewportSize}" Value="{Binding Value, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
               <Track.DecreaseRepeatButton>
-                <RepeatButton Command="ScrollBar.PageUpCommand" Style="{StaticResource ScrollPage}"/>
+                <RepeatButton x:Name="DecreasePage" Command="ScrollBar.PageUpCommand" Style="{StaticResource ScrollPage}"/>
               </Track.DecreaseRepeatButton>
               <Track.Thumb>
-                <Thumb MinHeight="24"/>
+                <Thumb x:Name="ScrollThumb" MinHeight="24"/>
               </Track.Thumb>
               <Track.IncreaseRepeatButton>
-                <RepeatButton Command="ScrollBar.PageDownCommand" Style="{StaticResource ScrollPage}"/>
+                <RepeatButton x:Name="IncreasePage" Command="ScrollBar.PageDownCommand" Style="{StaticResource ScrollPage}"/>
               </Track.IncreaseRepeatButton>
             </Track>
           </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+              <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+              <Setter TargetName="ScrollThumb" Property="MinHeight" Value="0"/>
+              <Setter TargetName="ScrollThumb" Property="MinWidth" Value="24"/>
+              <Setter TargetName="DecreasePage" Property="Command" Value="{x:Static ScrollBar.PageLeftCommand}"/>
+              <Setter TargetName="IncreasePage" Property="Command" Value="{x:Static ScrollBar.PageRightCommand}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+    <Style.Triggers>
+      <Trigger Property="Orientation" Value="Horizontal">
+        <Setter Property="Width" Value="Auto"/>
+        <Setter Property="Height" Value="10"/>
+        <Setter Property="MinHeight" Value="10"/>
+        <Setter Property="MinWidth" Value="20"/>
+      </Trigger>
+    </Style.Triggers>
   </Style>
   <DataTemplate x:Key="WorldCard" DataType="{x:Type local:WorldCardModel}">
     <local:WorldTile/>

@@ -104,11 +104,28 @@ public sealed partial class DesktopTests
             Assert.Equal(Enumerable.Range(301, 80), rows.Select(row => row.World));
             Assert.Equal("world-301.runescape.com", rows[0].Host);
             Preview(log, "latest-log.png");
+            var horizontal = Children<ScrollBar>(table).Single(bar => bar.Orientation == Orientation.Horizontal);
+            Assert.InRange(horizontal.ActualHeight, 1, 20); Assert.True(horizontal.ActualWidth > 100);
+            var track = (Track)horizontal.Template.FindName("PART_Track", horizontal);
+            Assert.Equal(Orientation.Horizontal, track.Orientation); Assert.False(track.IsDirectionReversed);
+            double before = horizontal.Value;
+            await ClickAsync(track.IncreaseRepeatButton);
+            await UntilAsync(() => horizontal.Value > before);
+            Preview(log, "latest-log-right-columns.png");
+            // A compact dialog must keep the same columns reachable in both directions.
+            log.Width = 520; log.Height = 440; log.UpdateLayout();
+            Preview(log, "latest-log-compact.png", 2);
+            await ClickAsync(track.DecreaseRepeatButton);
+            await UntilAsync(() => horizontal.Value == 0);
             h.Probe.Return(new ProbeResult(ProbeStatus.TimedOut, Diagnostic: new("ICMP", "127.0.0.1", "TimedOut")));
             await h.Engine.RecheckAsync(); await UntilAsync(() => main.Model.HealthText == "80 connection issues");
             Assert.All(rows, row => Assert.EndsWith(" ms", row.Reading));
             log.Close(); await click; Assert.True(IsWindowEnabled(new WindowInteropHelper(main).Handle));
             Preview(main, "application-connection-issues.png");
+            h.Probe.Return(new ProbeResult(ProbeStatus.Unreachable, Diagnostic: new("ICMP", "127.0.0.1", "DestinationHostUnreachable")));
+            await h.Engine.RecheckAsync(); await UntilAsync(() => main.Model.HealthText == "80 connection failures");
+            Assert.Equal("#FF9690", main.Model.HealthBrush);
+            Preview(main, "application-connection-failures.png");
         }
         finally
         {
