@@ -246,8 +246,8 @@
           </TabControl>
         </Grid>
         <ScrollViewer x:Name="PageScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
-          <StackPanel>
-            <Grid x:Name="SettingsReveal" Height="0" ClipToBounds="True" Panel.ZIndex="2" IsHitTestVisible="False">
+          <Grid x:Name="PageDeck">
+            <Grid x:Name="SettingsReveal" Height="0" VerticalAlignment="Top" ClipToBounds="True" Panel.ZIndex="2" IsHitTestVisible="False">
               <Canvas>
                 <ContentPresenter x:Name="SettingsOutgoing" VerticalAlignment="Top" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" Width="{Binding ActualWidth, ElementName=PageFrame}">
                   <ContentPresenter.RenderTransform>
@@ -261,9 +261,12 @@
                 </ContentPresenter>
               </Canvas>
             </Grid>
-            <StackPanel x:Name="WorldList">
+            <StackPanel x:Name="WorldList" VerticalAlignment="Top">
               <StackPanel.RenderTransform>
-                <TranslateTransform />
+                <TransformGroup>
+                  <TranslateTransform x:Name="WorldNavigationOffset" />
+                  <TranslateTransform x:Name="WorldScrollOffset" />
+                </TransformGroup>
               </StackPanel.RenderTransform>
               <TextBlock Height="28" local:Motion.Message="{Binding FavoriteFeedback}" Foreground="{StaticResource Gold}" FontSize="12" TextWrapping="Wrap" Margin="10,0,10,10" Opacity="0" />
               <StackPanel Visibility="{Binding HasFavorites, Converter={StaticResource VisibleWhenTrue}}" Margin="0,4,0,8" MaxWidth="1080" HorizontalAlignment="Stretch">
@@ -326,22 +329,25 @@
                   </StackPanel>
                 </ToggleButton>
               </Border>
-              <Grid x:Name="HiddenWorldsReveal" Height="0" ClipToBounds="True" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="1080" HorizontalAlignment="Stretch">
+              <Grid x:Name="HiddenWorldsReveal" Height="0" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="1080" HorizontalAlignment="Stretch">
                 <Canvas>
-                  <ItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
+                  <ItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
+                    <ItemsControl.Clip>
+                      <RectangleGeometry x:Name="HiddenWorldsClip" Rect="0,0,0,0" />
+                    </ItemsControl.Clip>
                     <ItemsControl.RenderTransform>
                       <TranslateTransform />
                     </ItemsControl.RenderTransform>
                     <ItemsControl.ItemsPanel>
                       <ItemsPanelTemplate>
-                        <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
+                        <local:VirtualWorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
                       </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                   </ItemsControl>
                 </Canvas>
               </Grid>
             </StackPanel>
-          </StackPanel>
+          </Grid>
         </ScrollViewer>
         <Grid x:Name="ReviewFooter" Grid.Row="2" Height="43" Margin="10,5,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">
           <Grid.RowDefinitions>

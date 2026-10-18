@@ -2,7 +2,6 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Media.Effects;
 using System.Windows.Input;
 using OsrsWorldPing.Core;
 
@@ -106,11 +105,11 @@ public sealed class ActivityGlyph : FrameworkElement
 // Expose cards as read-only groups to assistive technology without introducing selection or focus.
 public sealed class WorldCardSurface : System.Windows.Controls.Border
 {
-    private readonly DropShadowEffect _glow = new() { Color = Color.FromRgb(216, 181, 117), BlurRadius = 14, ShadowDepth = 0, Opacity = 0 };
+    private SolidColorBrush? _hoverFill;
     private readonly TranslateTransform _lift = new();
     public WorldCardSurface()
     {
-        Effect = _glow; RenderTransform = _lift;
+        RenderTransform = _lift;
         Loaded += (_, _) => SystemParameters.StaticPropertyChanged += OnMotionPreferenceChanged;
         Unloaded += (_, _) => { SystemParameters.StaticPropertyChanged -= OnMotionPreferenceChanged; ResetMotion(); };
     }
@@ -118,16 +117,16 @@ public sealed class WorldCardSurface : System.Windows.Controls.Border
     {
         base.OnMouseEnter(args);
         ResetMotion();
-        if (!Motion.CanAnimate(this)) { _glow.Opacity = .24; return; }
-        _glow.BeginAnimation(DropShadowEffect.OpacityProperty, new DoubleAnimation(.12, .32, TimeSpan.FromMilliseconds(900))
-        { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever, EasingFunction = new SineEase() });
+        if (_hoverFill is null) { _hoverFill = new SolidColorBrush(Color.FromRgb(224, 188, 85)) { Opacity = 0 }; InvalidateVisual(); }
+        if (!Motion.CanAnimate(this)) { _hoverFill.Opacity = .07; return; }
+        _hoverFill.BeginAnimation(Brush.OpacityProperty, new DoubleAnimation(.07, TimeSpan.FromMilliseconds(150)));
         _lift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(-1.5, TimeSpan.FromMilliseconds(180)));
     }
     protected override void OnMouseLeave(MouseEventArgs args)
     {
         base.OnMouseLeave(args);
         if (!Motion.CanAnimate(this)) { ResetMotion(); return; }
-        _glow.BeginAnimation(DropShadowEffect.OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)));
+        _hoverFill?.BeginAnimation(Brush.OpacityProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(150)));
         _lift.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(0, TimeSpan.FromMilliseconds(180)));
     }
     private void OnMotionPreferenceChanged(object? sender, PropertyChangedEventArgs args)
@@ -136,8 +135,13 @@ public sealed class WorldCardSurface : System.Windows.Controls.Border
     }
     internal void ResetMotion()
     {
-        _glow.BeginAnimation(DropShadowEffect.OpacityProperty, null); _glow.Opacity = 0;
+        if (_hoverFill is not null) { _hoverFill.BeginAnimation(Brush.OpacityProperty, null); _hoverFill.Opacity = 0; }
         _lift.BeginAnimation(TranslateTransform.YProperty, null); _lift.Y = 0;
+    }
+    protected override void OnRender(DrawingContext context)
+    {
+        base.OnRender(context);
+        if (_hoverFill is not null) context.DrawRoundedRectangle(_hoverFill, null, new Rect(RenderSize), CornerRadius.TopLeft, CornerRadius.TopLeft);
     }
     protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new CardPeer(this);
     private sealed class CardPeer(WorldCardSurface owner) : System.Windows.Automation.Peers.FrameworkElementAutomationPeer(owner)

@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media.Effects;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -252,7 +251,7 @@ public sealed partial class DesktopTests
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Assert.InRange(inactive.Opacity, .4, .5);
             var at = inactive.PointToScreen(new Point(inactive.ActualWidth / 2, inactive.ActualHeight / 2));
             SetCursorPos((int)at.X, (int)at.Y); await UntilAsync(() => inactive.IsMouseOver && inactive.Opacity > .8);
-            Assert.False(((DropShadowEffect)inactive.Effect).HasAnimatedProperties);
+            Assert.Null(inactive.Effect);
             await ClickAsync((ToggleButton)Tile(301).FindName("FavoriteToggle"));
             await UntilAsync(() => !main.Model.AllWorlds.Single(w => w.Id == 301).IsFavorite);
             await ClickAsync((ToggleButton)Tile(340).FindName("FavoriteToggle"));
@@ -298,7 +297,8 @@ public sealed partial class DesktopTests
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded);
             await Task.Delay(120);
             var reveal = (Grid)main.FindName("SettingsReveal"); Assert.True(reveal.ClipToBounds); var content = (ContentPresenter)main.FindName("SettingsContent");
-            Assert.True(main.IsNavigating); Assert.InRange(reveal.ActualHeight, 1, content.DesiredSize.Height - 1);
+            Assert.True(main.IsNavigating); Assert.Equal(content.DesiredSize.Height, reveal.ActualHeight);
+            Assert.False(DependencyPropertyHelper.GetValueSource(reveal, FrameworkElement.HeightProperty).IsAnimated);
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
             var tracking = (Border)main.FindName("TrackingControlHost"); Assert.InRange(tracking.Opacity, .01, .99);
             Preview(main, "page-transition-application.png");
@@ -310,8 +310,8 @@ public sealed partial class DesktopTests
             var outgoing = (ContentPresenter)main.FindName("SettingsOutgoing");
             Assert.True(((TranslateTransform)outgoing.RenderTransform).Y > 0);
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
-            Assert.InRange(reveal.ActualHeight, Math.Min(applicationHeight, content.DesiredSize.Height) + 1, Math.Max(applicationHeight, content.DesiredSize.Height) - 1);
-            // Both fades remain visible well beyond the former 240 ms exit.
+            Assert.Equal(Math.Max(applicationHeight, content.DesiredSize.Height), reveal.ActualHeight);
+            // Both fades are visible on screen while layout geometry stays fixed.
             // Wait for the visual state before encoding a screenshot, which can consume part of the fade duration.
             await UntilAsync(() => outgoing.Opacity is > .15 and < .85 && content.Opacity is > .05 and < .85);
             Assert.True(main.IsNavigating);
@@ -362,12 +362,15 @@ public sealed partial class DesktopTests
             var button = (ToggleButton)main.FindName("ShowAllButton");
             var reveal = (Grid)main.FindName("HiddenWorldsReveal");
             var cards = (ItemsControl)main.FindName("HiddenCards");
+            var clip = (RectangleGeometry)main.FindName("HiddenWorldsClip");
             var offset = (TranslateTransform)cards.RenderTransform;
             var chevron = (RotateTransform)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).RenderTransform;
             int probes = h.Probe.Hosts.Count;
-            await ClickAsync(button); await Task.Delay(140);
+            await ClickAsync(button); await Task.Delay(60);
             Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
-            Assert.InRange(reveal.ActualHeight, 1, cards.DesiredSize.Height - 1);
+            Assert.InRange(clip.Rect.Height, 1, cards.DesiredSize.Height - 1);
+            Assert.Equal(cards.DesiredSize.Height, reveal.ActualHeight);
+            Assert.False(DependencyPropertyHelper.GetValueSource(reveal, FrameworkElement.HeightProperty).IsAnimated);
             Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y < 0);
             Assert.InRange(chevron.Angle, 1, 179);
             Preview(main, "hidden-worlds-opening.png");
@@ -384,9 +387,10 @@ public sealed partial class DesktopTests
             Assert.Equal(neutral, ((SolidColorBrush)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).Stroke).Color);
             Assert.Equal(1, ((ScaleTransform)button.RenderTransform).ScaleX);
             Preview(main, "hidden-worlds-expanded-pointer-away.png");
-            await ClickAsync(button); await Task.Delay(140);
+            await ClickAsync(button); await Task.Delay(60);
             Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
-            Assert.InRange(reveal.ActualHeight, 1, expandedHeight - 1);
+            Assert.InRange(clip.Rect.Height, 1, expandedHeight - 1);
+            Assert.Equal(0, reveal.ActualHeight);
             Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y > 0);
             Preview(main, "hidden-worlds-closing.png");
             await UntilAsync(() => !main.IsRevealingWorlds);
@@ -404,6 +408,17 @@ public sealed partial class DesktopTests
             Assert.True(reveal.ActualHeight > expandedHeight);
             await ResizeAsync(main, 1920, 1040);
             await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - expandedHeight) < .5);
+            var scroll = (ScrollViewer)main.FindName("PageScroll");
+            scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            var worlds = (StackPanel)main.FindName("WorldList");
+            double previousTop = worlds.TranslatePoint(new Point(), scroll).Y;
+            Assert.True(scroll.VerticalOffset > 100);
+            main.Model.ShowAllWorlds = false;
+            Assert.InRange(Math.Abs(worlds.TranslatePoint(new Point(), scroll).Y - previousTop), 0, 1);
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.Equal(0, scroll.VerticalOffset);
+            Assert.Equal(0, ((TranslateTransform)main.FindName("WorldScrollOffset")).Y);
+            main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
             // Leaving during a reveal cannot leave hidden cards on Application or About.
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
             Assert.False(cards.IsVisible); Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
@@ -412,7 +427,7 @@ public sealed partial class DesktopTests
             main.Model.ShowAllWorlds = false; await Task.Delay(120);
             Motion.SetEnabled(main, false);
             Assert.False(main.IsRevealingWorlds); Assert.False(reveal.IsVisible);
-            Assert.False(offset.HasAnimatedProperties); Assert.False(chevron.HasAnimatedProperties);
+            Assert.False(offset.HasAnimatedProperties); Assert.False(chevron.HasAnimatedProperties); Assert.False(clip.HasAnimatedProperties);
             main.Model.ShowAllWorlds = true;
             Assert.False(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
             Assert.Equal(expandedHeight, reveal.Height); Assert.Equal(1, cards.Opacity);

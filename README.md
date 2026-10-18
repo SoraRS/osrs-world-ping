@@ -75,6 +75,8 @@ The bottom of settings shows when the catalogue was updated. The reserved progre
 
 **My old cutoff changed from 60 to 30 ms.** The earlier default moves to 30 ms once. Other custom cutoffs are kept. An intentional 60 ms selection saved after that migration remains 60 ms through this update. Old refresh intervals below five seconds are raised to the new minimum.
 
+**Animations feel choppy.** Check About for version **1.4.2 or newer**. This version reduces layout and hidden-list loading work during transitions. If it still stutters, include your display resolution, Windows scaling/refresh-rate setting, GPU, and whether you use multiple displays or windowed G-SYNC/FreeSync when [reporting the problem](https://github.com/SoraRS/osrs-world-ping/issues). Windows animation preferences are respected.
+
 **Preferences do not survive a restart.** Check Application for a save error. The app needs access to `%LOCALAPPDATA%\OsrsWorldPing`. Readable settings can still work for the current session. Keep the old data folder until the import succeeds. To start completely fresh, exit first and rename both the current and legacy data folders so old preferences are not imported again.
 
 ## Privacy and help
