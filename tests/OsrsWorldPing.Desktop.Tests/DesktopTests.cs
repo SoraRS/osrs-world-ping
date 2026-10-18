@@ -38,6 +38,15 @@ public sealed class DesktopTests
         while (!condition()) { if (DateTime.UtcNow > deadline) throw new TimeoutException("WPF condition was not met"); await Task.Delay(30); }
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
     }
+    private static async Task SetClientAnimationsAsync(bool enabled)
+    {
+        Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(enabled ? 1 : 0), 2));
+        bool nativeAnimations = !enabled;
+        Assert.True(SystemParametersInfoBoolean(0x1042, 0, ref nativeAnimations, 0));
+        Assert.Equal(enabled, nativeAnimations);
+        SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
+        await UntilAsync(() => SystemParameters.ClientAreaAnimation == enabled);
+    }
     private static async Task ResizeAsync(MainWindow window, double width, double height)
     {
         window.WindowState = WindowState.Normal;
@@ -116,7 +125,7 @@ public sealed class DesktopTests
     }
 
     [Fact]
-    public Task ThirtyFiveCardsFitInSeparateNumericColumnsAndSettingsKeepTheGrid() => OnUiThreadAsync(async () =>
+    public Task ThirtyFiveCardsFitInSeparateNumericColumnsAndOnlyTrackingSettingsShowsTheGrid() => OnUiThreadAsync(async () =>
     {
         var h = Samples(80); var main = new MainWindow(h.Engine); main.Show(); Motion.SetEnabled(main, false);
         try
@@ -167,10 +176,13 @@ public sealed class DesktopTests
             for (int tab = 0; tab < 3; tab++)
             {
                 tabs.SelectedIndex = tab; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
-                Assert.True(header.IsVisible); Assert.True(cards.IsVisible); Assert.True(favorites.IsVisible);
+                Assert.True(header.IsVisible); Assert.Equal(tab == 0, cards.IsVisible); Assert.Equal(tab == 0, favorites.IsVisible);
+                Assert.Equal(tab == 0, ((ItemsControl)main.FindName("FreeCards")).IsVisible);
+                Assert.Equal(tab == 0, ((StackPanel)main.FindName("WorldList")).IsVisible);
                 var selectedLabel = Children<TextBlock>((TabItem)tabs.Items[tab]).Single();
                 Assert.Equal(Color.FromRgb(224, 188, 85), ((SolidColorBrush)selectedLabel.Foreground).Color);
-                Assert.True(cards.TranslatePoint(new Point(), main).Y >= ((Grid)main.FindName("SettingsReveal")).TranslatePoint(new Point(), main).Y + ((Grid)main.FindName("SettingsReveal")).ActualHeight);
+                if (tab == 0)
+                    Assert.True(cards.TranslatePoint(new Point(), main).Y >= ((Grid)main.FindName("SettingsReveal")).TranslatePoint(new Point(), main).Y + ((Grid)main.FindName("SettingsReveal")).ActualHeight);
                 Assert.Equal(35, main.Model.Snapshot.LiveCount);
                 if (tab > 0)
                 {
@@ -261,12 +273,7 @@ public sealed class DesktopTests
         try
         {
             // Exercise the animated path even on runners configured for reduced motion. Restore the OS preference in finally.
-            Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(1), 2));
-            bool nativeAnimations = false;
-            Assert.True(SystemParametersInfoBoolean(0x1042, 0, ref nativeAnimations, 0));
-            Assert.True(nativeAnimations, "Windows must report client-area animation enabled before WPF can exercise it.");
-            SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
-            await UntilAsync(() => SystemParameters.ClientAreaAnimation);
+            await SetClientAnimationsAsync(true);
             await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
             bool animate = Motion.CanAnimate(main); Assert.True(animate);
             double originalY = ((ItemsControl)main.FindName("MemberCards")).TranslatePoint(new Point(), main).Y;
@@ -297,6 +304,7 @@ public sealed class DesktopTests
             Preview(main, "page-transition-application.png");
             await UntilAsync(() => !main.IsNavigating);
             Assert.True(reveal.ActualHeight > 250);
+            Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
             double applicationHeight = reveal.ActualHeight;
             main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.Loaded); await Task.Delay(120);
             var outgoing = (ContentPresenter)main.FindName("SettingsOutgoing");
@@ -304,7 +312,14 @@ public sealed class DesktopTests
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
             Assert.InRange(reveal.ActualHeight, Math.Min(applicationHeight, content.DesiredSize.Height) + 1, Math.Max(applicationHeight, content.DesiredSize.Height) - 1);
             Preview(main, "page-transition-about.png");
+            // Both fades remain visible well beyond the former 240 ms exit.
+            await Task.Delay(240);
+            Assert.True(main.IsNavigating);
+            Assert.InRange(outgoing.Opacity, .01, .99);
+            Assert.InRange(content.Opacity, .01, .99);
+            Preview(main, "page-transition-about-visible-fades.png");
             await UntilAsync(() => !main.IsNavigating);
+            Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); await UntilAsync(() => !main.IsNavigating);
             main.Model.ShowSettings = false; main.Model.ShowSettings = true;
             Motion.SetEnabled(main, false); // Also stop a transition already in flight.
@@ -330,9 +345,76 @@ public sealed class DesktopTests
         finally
         {
             await CloseAsync(main); await h.DisposeAsync();
-            Assert.True(SystemParametersInfo(0x1043, 0, new IntPtr(previousAnimations ? 1 : 0), 2));
-            SendMessageTimeout(new IntPtr(0xffff), 0x001A, new IntPtr(0x1043), IntPtr.Zero, 2, 1000, out _);
-            await UntilAsync(() => SystemParameters.ClientAreaAnimation == previousAnimations);
+            await SetClientAnimationsAsync(previousAnimations);
+        }
+    });
+
+    [Fact]
+    public Task HiddenWorldRevealAnimatesBothWaysAndMouseExitClearsClickedButtonStyles() => OnUiThreadAsync(async () =>
+    {
+        bool previousAnimations = SystemParameters.ClientAreaAnimation;
+        var h = Samples(80); var main = new MainWindow(h.Engine); main.Show();
+        try
+        {
+            await SetClientAnimationsAsync(true);
+            await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
+            main.Model.ShowSettings = true; await UntilAsync(() => !main.IsNavigating);
+            var button = (ToggleButton)main.FindName("ShowAllButton");
+            var reveal = (Grid)main.FindName("HiddenWorldsReveal");
+            var cards = (ItemsControl)main.FindName("HiddenCards");
+            var offset = (TranslateTransform)cards.RenderTransform;
+            var chevron = (RotateTransform)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).RenderTransform;
+            int probes = h.Probe.Hosts.Count;
+            await ClickAsync(button); await Task.Delay(140);
+            Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.InRange(reveal.ActualHeight, 1, cards.DesiredSize.Height - 1);
+            Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y < 0);
+            Assert.InRange(chevron.Angle, 1, 179);
+            Preview(main, "hidden-worlds-opening.png");
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            double expandedHeight = reveal.ActualHeight;
+            Assert.True(expandedHeight > 600); Assert.Equal(180, chevron.Angle);
+            Assert.True(button.IsKeyboardFocused);
+            Assert.True(SetCursorPos(1, 1)); await UntilAsync(() => !button.IsMouseOver); await Task.Delay(200);
+            // A mouse click retains keyboard focus, but must not retain hover ink or scale.
+            Assert.True(button.IsKeyboardFocused); Assert.NotNull(button.FocusVisualStyle);
+            var neutral = Color.FromRgb(142, 151, 148);
+            Assert.Equal(neutral, ((SolidColorBrush)button.Foreground).Color);
+            Assert.Equal(neutral, ((SolidColorBrush)Children<TextBlock>(button).Single().Foreground).Color);
+            Assert.Equal(neutral, ((SolidColorBrush)((System.Windows.Shapes.Path)main.FindName("ShowAllChevron")).Stroke).Color);
+            Assert.Equal(1, ((ScaleTransform)button.RenderTransform).ScaleX);
+            Preview(main, "hidden-worlds-expanded-pointer-away.png");
+            await ClickAsync(button); await Task.Delay(140);
+            Assert.True(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.InRange(reveal.ActualHeight, 1, expandedHeight - 1);
+            Assert.InRange(cards.Opacity, .01, .99); Assert.True(offset.Y > 0);
+            Preview(main, "hidden-worlds-closing.png");
+            await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.False(reveal.IsVisible); Assert.Equal(0, reveal.Height); Assert.Equal(0, chevron.Angle);
+            Assert.True(SetCursorPos(1, 1)); await UntilAsync(() => !button.IsMouseOver); await Task.Delay(200);
+            Assert.Equal(neutral, ((SolidColorBrush)button.Foreground).Color);
+            main.Model.ShowAllWorlds = true; await Task.Delay(120);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
+            Assert.Equal(expandedHeight, reveal.ActualHeight); Assert.Equal(1, cards.Opacity);
+            // Leaving during a reveal cannot leave hidden cards on Application or About.
+            main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
+            Assert.False(cards.IsVisible); Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
+            main.Model.SelectedSettingsTab = 0; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
+            Assert.True(main.Model.ShowAllWorlds); Assert.True(cards.IsVisible);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            Motion.SetEnabled(main, false);
+            Assert.False(main.IsRevealingWorlds); Assert.False(reveal.IsVisible);
+            Assert.False(offset.HasAnimatedProperties); Assert.False(chevron.HasAnimatedProperties);
+            main.Model.ShowAllWorlds = true;
+            Assert.False(main.IsRevealingWorlds); Assert.True(reveal.IsVisible);
+            Assert.Equal(expandedHeight, reveal.Height); Assert.Equal(1, cards.Opacity);
+            Assert.Equal(probes, h.Probe.Hosts.Count);
+        }
+        finally
+        {
+            SetCursorPos(1, 1); await CloseAsync(main); await h.DisposeAsync();
+            await SetClientAnimationsAsync(previousAnimations);
         }
     });
 

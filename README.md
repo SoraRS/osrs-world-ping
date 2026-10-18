@@ -44,9 +44,9 @@ Ping measures your network connection, **not server ticks**. A low reading does 
 
 ## Settings and favorites
 
-Click the **gear** or press **Ctrl+,**. Settings slides down inside the same window, keeping the live worlds below every tab. Click the gear again or press **Esc** to return. The gear and tabs animate briefly; motion follows Windows' animation preference.
+Click the **gear** or press **Ctrl+,**. Settings opens inside the same window. **World tracking** keeps the live worlds visible; **Application** and **About** show their settings without the world list. Monitoring continues on every tab. Click the gear again or press **Esc** to return. Page changes fade and slide smoothly; motion follows Windows' animation preference.
 
-- **World tracking:** select **Show all** below the live grid to reveal the rest of the catalogue in world-number order. **Hide all** folds it away. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
+- **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
 - **Favorites:** use the heart to save up to five worlds, including a world outside the normal cutoff. Favorites use their own slots and never appear twice. Remove a favorite before adding a sixth. Removing its heart restores automatic selection; it may return to the hidden list.
 - **Application:** set a latency cutoff from **1–2,000 ms** and refresh interval from **5–600 seconds**, then select **Apply settings**. Both values are required. Always-on-top and the minimize/close-to-tray options start disabled.
 - **Check connection:** in Application, check every world again. Its status distinguishes all worlds replying from partial or unavailable results. Use it after raising the cutoff to find newly eligible worlds immediately.

@@ -261,89 +261,86 @@
                 </ContentPresenter>
               </Canvas>
             </Grid>
-            <TextBlock Height="28" local:Motion.Message="{Binding FavoriteFeedback}" Foreground="{StaticResource Gold}" FontSize="12" TextWrapping="Wrap" Margin="10,0,10,10" Opacity="0" />
-            <StackPanel Visibility="{Binding HasFavorites, Converter={StaticResource VisibleWhenTrue}}" Margin="0,4,0,8" MaxWidth="1080" HorizontalAlignment="Stretch">
-              <TextBlock Text="❤ Favorite" Foreground="{StaticResource Gold}" FontSize="12" Margin="11,0,0,5" />
-              <ItemsControl x:Name="FavoriteCards" ItemsSource="{Binding Favorites}" ItemTemplate="{StaticResource WorldCard}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <local:WorldColumnsPanel Columns="{Binding FavoriteColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
-            </StackPanel>
-            <StackPanel MaxWidth="1080" HorizontalAlignment="Stretch" Margin="0,4,0,5" Visibility="{Binding HasMembers, Converter={StaticResource VisibleWhenTrue}}">
-              <TextBlock Text="★ Members" Foreground="{StaticResource Gold}" FontSize="12" Margin="9,0,0,5" />
-              <ItemsControl x:Name="MemberCards" ItemsSource="{Binding Members}" ItemTemplate="{StaticResource WorldCard}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
-            </StackPanel>
-            <StackPanel MaxWidth="1080" HorizontalAlignment="Stretch" Margin="0,4,0,5" Visibility="{Binding HasFreeToPlay, Converter={StaticResource VisibleWhenTrue}}">
-              <TextBlock Text="☆ Free to play" Foreground="{StaticResource Silver}" FontSize="12" Margin="9,0,0,5" />
-              <ItemsControl x:Name="FreeCards" ItemsSource="{Binding FreeToPlay}" ItemTemplate="{StaticResource WorldCard}">
-                <ItemsControl.ItemsPanel>
-                  <ItemsPanelTemplate>
-                    <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
-                  </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-              </ItemsControl>
-            </StackPanel>
-            <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" Margin="12,48,12,24" MaxWidth="430">
-              <StackPanel.Style>
-                <Style TargetType="StackPanel">
-                  <Setter Property="Visibility" Value="Collapsed" />
-                  <Style.Triggers>
-                    <DataTrigger Binding="{Binding HasTracked}" Value="False">
-                      <Setter Property="Visibility" Value="Visible" />
-                    </DataTrigger>
-                  </Style.Triggers>
-                </Style>
-              </StackPanel.Style>
-              <TextBlock Text="{Binding EmptyTitle}" FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Gold}" TextAlignment="Center" TextWrapping="Wrap" />
-              <TextBlock Text="{Binding EmptyDescription}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,18" />
-              <Button Content="Open connection settings" Command="{Binding OpenConnectionSettings}" HorizontalAlignment="Center" />
-            </StackPanel>
-            <Border x:Name="TrackingControlHost" Opacity="0" Visibility="Hidden" IsHitTestVisible="False">
-              <Border.RenderTransform>
+            <StackPanel x:Name="WorldList">
+              <StackPanel.RenderTransform>
                 <TranslateTransform />
-              </Border.RenderTransform>
-              <ToggleButton x:Name="ShowAllButton" Style="{StaticResource RevealToggle}" IsChecked="{Binding ShowAllWorlds}" AutomationProperties.Name="Show or hide all other worlds" Margin="0,15,0,12">
-                <StackPanel>
-                  <TextBlock Text="{Binding ShowAllLabel}" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" FontSize="12" />
-                  <Path x:Name="ShowAllChevron" Data="M1,1 L8,8 L15,1" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" StrokeThickness="1.6" Width="15" Height="9" Stretch="Uniform" Margin="0,6,0,0" RenderTransformOrigin="0.5,0.5">
-                    <Path.Style>
-                      <Style TargetType="Path">
-                        <Setter Property="RenderTransform">
-                          <Setter.Value>
-                            <RotateTransform />
-                          </Setter.Value>
-                        </Setter>
-                        <Style.Triggers>
-                          <DataTrigger Binding="{Binding ShowAllWorlds}" Value="True">
-                            <Setter Property="RenderTransform">
-                              <Setter.Value>
-                                <RotateTransform Angle="180" />
-                              </Setter.Value>
-                            </Setter>
-                          </DataTrigger>
-                        </Style.Triggers>
-                      </Style>
-                    </Path.Style>
-                  </Path>
-                </StackPanel>
-              </ToggleButton>
-            </Border>
-            <ItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" Visibility="{Binding ShowHiddenWorlds, Converter={StaticResource VisibleWhenTrue}}" MaxWidth="1080" HorizontalAlignment="Stretch">
-              <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                  <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
-                </ItemsPanelTemplate>
-              </ItemsControl.ItemsPanel>
-            </ItemsControl>
+              </StackPanel.RenderTransform>
+              <TextBlock Height="28" local:Motion.Message="{Binding FavoriteFeedback}" Foreground="{StaticResource Gold}" FontSize="12" TextWrapping="Wrap" Margin="10,0,10,10" Opacity="0" />
+              <StackPanel Visibility="{Binding HasFavorites, Converter={StaticResource VisibleWhenTrue}}" Margin="0,4,0,8" MaxWidth="1080" HorizontalAlignment="Stretch">
+                <TextBlock Text="❤ Favorite" Foreground="{StaticResource Gold}" FontSize="12" Margin="11,0,0,5" />
+                <ItemsControl x:Name="FavoriteCards" ItemsSource="{Binding Favorites}" ItemTemplate="{StaticResource WorldCard}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <local:WorldColumnsPanel Columns="{Binding FavoriteColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+              <StackPanel MaxWidth="1080" HorizontalAlignment="Stretch" Margin="0,4,0,5" Visibility="{Binding HasMembers, Converter={StaticResource VisibleWhenTrue}}">
+                <TextBlock Text="★ Members" Foreground="{StaticResource Gold}" FontSize="12" Margin="9,0,0,5" />
+                <ItemsControl x:Name="MemberCards" ItemsSource="{Binding Members}" ItemTemplate="{StaticResource WorldCard}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+              <StackPanel MaxWidth="1080" HorizontalAlignment="Stretch" Margin="0,4,0,5" Visibility="{Binding HasFreeToPlay, Converter={StaticResource VisibleWhenTrue}}">
+                <TextBlock Text="☆ Free to play" Foreground="{StaticResource Silver}" FontSize="12" Margin="9,0,0,5" />
+                <ItemsControl x:Name="FreeCards" ItemsSource="{Binding FreeToPlay}" ItemTemplate="{StaticResource WorldCard}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                </ItemsControl>
+              </StackPanel>
+              <StackPanel x:Name="EmptyState" HorizontalAlignment="Center" Margin="12,48,12,24" MaxWidth="430">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasTracked}" Value="False">
+                        <Setter Property="Visibility" Value="Visible" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
+                <TextBlock Text="{Binding EmptyTitle}" FontFamily="Georgia" FontSize="25" Foreground="{StaticResource Gold}" TextAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding EmptyDescription}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,18" />
+                <Button Content="Open connection settings" Command="{Binding OpenConnectionSettings}" HorizontalAlignment="Center" />
+              </StackPanel>
+              <Border x:Name="TrackingControlHost" Opacity="0" Visibility="Hidden" IsHitTestVisible="False">
+                <Border.RenderTransform>
+                  <TranslateTransform />
+                </Border.RenderTransform>
+                <ToggleButton x:Name="ShowAllButton" Style="{StaticResource RevealToggle}" IsChecked="{Binding ShowAllWorlds}" AutomationProperties.Name="Show or hide all other worlds" Margin="0,15,0,12">
+                  <StackPanel>
+                    <TextBlock Text="{Binding ShowAllLabel}" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" FontSize="12" />
+                    <Path x:Name="ShowAllChevron" Data="M1,1 L8,8 L15,1" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" StrokeThickness="1.6" Width="15" Height="9" Stretch="Uniform" Margin="0,6,0,0" RenderTransformOrigin="0.5,0.5">
+                      <Path.RenderTransform>
+                        <RotateTransform />
+                      </Path.RenderTransform>
+                    </Path>
+                  </StackPanel>
+                </ToggleButton>
+              </Border>
+              <Grid x:Name="HiddenWorldsReveal" Height="0" ClipToBounds="True" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="1080" HorizontalAlignment="Stretch">
+                <Canvas>
+                  <ItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
+                    <ItemsControl.RenderTransform>
+                      <TranslateTransform />
+                    </ItemsControl.RenderTransform>
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate>
+                        <local:WorldColumnsPanel Columns="{Binding ColumnCount, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" />
+                      </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                  </ItemsControl>
+                </Canvas>
+              </Grid>
+            </StackPanel>
           </StackPanel>
         </ScrollViewer>
         <Grid x:Name="ReviewFooter" Grid.Row="2" Height="43" Margin="10,5,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">

@@ -23,15 +23,19 @@ public partial class MainWindow : Window
     public int ColumnCount { get => (int)GetValue(ColumnCountProperty); private set => SetValue(ColumnCountProperty, value); }
     public static readonly DependencyProperty IsNavigatingProperty = DependencyProperty.Register(nameof(IsNavigating), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
     public bool IsNavigating { get => (bool)GetValue(IsNavigatingProperty); private set => SetValue(IsNavigatingProperty, value); }
+    public static readonly DependencyProperty IsRevealingWorldsProperty = DependencyProperty.Register(nameof(IsRevealingWorlds), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
+    public bool IsRevealingWorlds { get => (bool)GetValue(IsRevealingWorldsProperty); private set => SetValue(IsRevealingWorldsProperty, value); }
     private readonly MonitoringEngine _engine;
     private readonly Forms.NotifyIcon _tray;
     private readonly System.Drawing.Icon _trayIcon;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private bool _exitRequested, _closing, _closed, _placementLoaded, _appliedTopmost, _ready;
     private HwndSource? _source;
-    private bool _lastShowSettings;
-    private int _navigationVersion, _trayTransitionVersion;
-    private double _contentTargetHeight, _gearRestAngle;
+    private bool _lastShowSettings, _lastShowHiddenWorlds;
+    private int _navigationVersion, _hiddenWorldsVersion, _trayTransitionVersion;
+    private double _contentTargetHeight, _hiddenTargetHeight, _gearRestAngle;
+    private static readonly TimeSpan NavigationDuration = TimeSpan.FromMilliseconds(900);
+    private static readonly TimeSpan WorldRevealDuration = TimeSpan.FromMilliseconds(600);
     public DashboardViewModel Model { get; }
 
     public MainWindow(MonitoringEngine engine)
@@ -76,6 +80,11 @@ public partial class MainWindow : Window
         {
             _lastShowSettings = Model.ShowSettings;
             NavigateSettings();
+        }
+        if (_ready && !_closed && _lastShowHiddenWorlds != Model.ShowHiddenWorlds)
+        {
+            _lastShowHiddenWorlds = Model.ShowHiddenWorlds;
+            AnimateHiddenWorlds();
         }
         if (_closed || !Model.Snapshot.SettingsLoaded) return;
         if (!_placementLoaded)
@@ -174,7 +183,7 @@ public partial class MainWindow : Window
         SettingsContent.Measure(new Size(Math.Max(1, PageFrame.ActualWidth), double.PositiveInfinity));
         _contentTargetHeight = opening ? SettingsContent.DesiredSize.Height : 0;
         if (!Motion.CanAnimate(this)) { StopNavigationMotion(); return; }
-        var duration = TimeSpan.FromMilliseconds(600);
+        var duration = NavigationDuration;
         var easing = new CubicEase { EasingMode = EasingMode.EaseInOut };
         var reveal = new DoubleAnimation(initialHeight, _contentTargetHeight, duration) { EasingFunction = easing };
         reveal.Completed += (_, _) => { if (version == _navigationVersion) FinishNavigation(); };
@@ -182,15 +191,16 @@ public partial class MainWindow : Window
         double distance = Math.Max(120, PageScroll.ActualHeight);
         if (changing)
         {
-            SettingsOutgoing.BeginAnimation(OpacityProperty, new DoubleAnimation(previousOpacity, 0, TimeSpan.FromMilliseconds(240)));
+            // Ease the outgoing slide in so its fade remains visible before it leaves the clipped viewport.
+            SettingsOutgoing.BeginAnimation(OpacityProperty, new DoubleAnimation(previousOpacity, 0, TimeSpan.FromMilliseconds(600)) { EasingFunction = easing });
             ((TranslateTransform)SettingsOutgoing.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(previousOffset, distance, TimeSpan.FromMilliseconds(240)) { EasingFunction = easing });
+                new DoubleAnimation(previousOffset, distance, TimeSpan.FromMilliseconds(600)) { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn } });
             SettingsContent.BeginAnimation(OpacityProperty, null); SettingsContent.Opacity = 0;
             var incomingOffset = (TranslateTransform)SettingsContent.RenderTransform;
             incomingOffset.BeginAnimation(TranslateTransform.YProperty, null); incomingOffset.Y = -distance;
-            SettingsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(420)) { BeginTime = TimeSpan.FromMilliseconds(180) });
+            SettingsContent.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(780)) { BeginTime = TimeSpan.FromMilliseconds(120), EasingFunction = easing });
             ((TranslateTransform)SettingsContent.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(-distance, 0, TimeSpan.FromMilliseconds(420)) { BeginTime = TimeSpan.FromMilliseconds(180), EasingFunction = easing });
+                new DoubleAnimation(-distance, 0, TimeSpan.FromMilliseconds(780)) { BeginTime = TimeSpan.FromMilliseconds(120), EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } });
         }
         SettingsTabs.BeginAnimation(OpacityProperty, new DoubleAnimation(opening ? 1 : 0, duration));
         ((TranslateTransform)SettingsTabs.RenderTransform).BeginAnimation(TranslateTransform.YProperty,
@@ -198,7 +208,68 @@ public partial class MainWindow : Window
         var rotation = (RotateTransform)Gear.RenderTransform;
         rotation.BeginAnimation(RotateTransform.AngleProperty, new DoubleAnimation(rotation.Angle, rotation.Angle + (opening ? 240 : -240), duration) { EasingFunction = easing });
         AnimateTrackingControl();
+        AnimateWorldList();
         EmitSparks(opening);
+    }
+    private void AnimateWorldList()
+    {
+        bool visible = Model.ShowWorldList;
+        var offset = (TranslateTransform)WorldList.RenderTransform;
+        if (visible && WorldList.Visibility == Visibility.Collapsed)
+        {
+            WorldList.BeginAnimation(OpacityProperty, null); WorldList.Opacity = 0;
+            offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = -48;
+        }
+        WorldList.Visibility = Visibility.Visible;
+        WorldList.IsHitTestVisible = visible;
+        WorldList.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(600))
+        { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? 0 : 48, TimeSpan.FromMilliseconds(600))
+        { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
+    }
+
+    private void HiddenCardsSizeChanged(object sender, SizeChangedEventArgs args)
+    {
+        if (_ready && !_closed && Model.ShowHiddenWorlds && !IsRevealingWorlds && Math.Abs(_hiddenTargetHeight - args.NewSize.Height) > .5)
+            AnimateHiddenWorlds();
+    }
+    private void AnimateHiddenWorlds()
+    {
+        int version = ++_hiddenWorldsVersion;
+        bool opening = Model.ShowHiddenWorlds;
+        double initialHeight = HiddenWorldsReveal.ActualHeight;
+        IsRevealingWorlds = true;
+        HiddenWorldsReveal.Visibility = Visibility.Visible;
+        HiddenWorldsReveal.IsHitTestVisible = opening;
+        HiddenWorldsReveal.BeginAnimation(HeightProperty, null); HiddenWorldsReveal.Height = initialHeight;
+        HiddenWorldsReveal.UpdateLayout();
+        HiddenCards.Measure(new Size(Math.Max(1, HiddenWorldsReveal.ActualWidth), double.PositiveInfinity));
+        _hiddenTargetHeight = opening ? HiddenCards.DesiredSize.Height : 0;
+        if (!Motion.CanAnimate(this)) { FinishHiddenWorlds(); return; }
+        var easing = new CubicEase { EasingMode = EasingMode.EaseInOut };
+        var reveal = new DoubleAnimation(initialHeight, _hiddenTargetHeight, WorldRevealDuration) { EasingFunction = easing };
+        reveal.Completed += (_, _) => { if (version == _hiddenWorldsVersion) FinishHiddenWorlds(); };
+        HiddenWorldsReveal.BeginAnimation(HeightProperty, reveal);
+        HiddenCards.BeginAnimation(OpacityProperty, new DoubleAnimation(opening ? 1 : 0, WorldRevealDuration) { EasingFunction = easing });
+        var offset = (TranslateTransform)HiddenCards.RenderTransform;
+        if (opening && initialHeight < .5)
+        { offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = -32; }
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(opening ? 0 : 32, WorldRevealDuration) { EasingFunction = easing });
+        ((RotateTransform)ShowAllChevron.RenderTransform).BeginAnimation(RotateTransform.AngleProperty,
+            new DoubleAnimation(Model.ShowAllWorlds ? 180 : 0, WorldRevealDuration) { EasingFunction = easing });
+    }
+    private void FinishHiddenWorlds()
+    {
+        bool visible = Model.ShowHiddenWorlds;
+        HiddenWorldsReveal.BeginAnimation(HeightProperty, null); HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
+        HiddenWorldsReveal.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        HiddenWorldsReveal.IsHitTestVisible = visible;
+        HiddenCards.BeginAnimation(OpacityProperty, null); HiddenCards.Opacity = visible ? 1 : 0;
+        var offset = (TranslateTransform)HiddenCards.RenderTransform;
+        offset.BeginAnimation(TranslateTransform.YProperty, null); offset.Y = 0;
+        var rotation = (RotateTransform)ShowAllChevron.RenderTransform;
+        rotation.BeginAnimation(RotateTransform.AngleProperty, null); rotation.Angle = Model.ShowAllWorlds ? 180 : 0;
+        IsRevealingWorlds = false;
     }
     private void AnimateTrackingControl()
     {
@@ -208,8 +279,8 @@ public partial class MainWindow : Window
         var offset = (TranslateTransform)TrackingControlHost.RenderTransform;
         double baseY = TrackingControlHost.TranslatePoint(new Point(), PageScroll).Y - offset.Y;
         double distance = Math.Max(80, PageScroll.ActualHeight - baseY + TrackingControlHost.ActualHeight);
-        TrackingControlHost.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, TimeSpan.FromMilliseconds(600)));
-        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? distance : offset.Y, visible ? 0 : distance, TimeSpan.FromMilliseconds(600))
+        TrackingControlHost.BeginAnimation(OpacityProperty, new DoubleAnimation(visible ? 1 : 0, NavigationDuration));
+        offset.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(visible ? distance : offset.Y, visible ? 0 : distance, NavigationDuration)
         { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut } });
     }
     internal void StopNavigationMotion()
@@ -217,6 +288,8 @@ public partial class MainWindow : Window
         if (!_ready || _closed) return;
         ++_navigationVersion;
         FinishNavigation();
+        ++_hiddenWorldsVersion;
+        FinishHiddenWorlds();
     }
     private void FinishNavigation()
     {
@@ -236,6 +309,11 @@ public partial class MainWindow : Window
         SettingsOutgoing.Content = null; SettingsOutgoing.Visibility = Visibility.Hidden;
         SettingsContent.Visibility = SettingsTabs.Visibility = opening ? Visibility.Visible : Visibility.Hidden;
         SettingsReveal.IsHitTestVisible = opening;
+        WorldList.BeginAnimation(OpacityProperty, null); WorldList.Opacity = Model.ShowWorldList ? 1 : 0;
+        WorldList.Visibility = Model.ShowWorldList ? Visibility.Visible : Visibility.Collapsed;
+        WorldList.IsHitTestVisible = Model.ShowWorldList;
+        var worldOffset = (TranslateTransform)WorldList.RenderTransform;
+        worldOffset.BeginAnimation(TranslateTransform.YProperty, null); worldOffset.Y = 0;
         TrackingControlHost.BeginAnimation(OpacityProperty, null); TrackingControlHost.Opacity = Model.ShowWorldTracking ? 1 : 0;
         TrackingControlHost.Visibility = Model.ShowWorldTracking ? Visibility.Visible : Visibility.Hidden;
         TrackingControlHost.IsHitTestVisible = Model.ShowWorldTracking;

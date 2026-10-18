@@ -146,6 +146,7 @@ public sealed class DashboardViewModel : ObservableModel, IDisposable
     public bool ShowDashboard => !ShowSettings;
     public int SelectedSettingsTab { get => _selectedSettingsTab; set { if (Set(ref _selectedSettingsTab, value)) { ClearFeedback(); Notify(null); } } }
     public bool ShowWorldTracking => ShowSettings && SelectedSettingsTab == 0;
+    public bool ShowWorldList => !ShowSettings || ShowWorldTracking;
     public bool ShowAllWorlds { get => _showAllWorlds; set { if (Set(ref _showAllWorlds, value)) Notify(null); } }
     public bool ShowHiddenWorlds => ShowWorldTracking && ShowAllWorlds;
     public string ShowAllLabel => ShowAllWorlds ? "Hide all" : "Show all";
