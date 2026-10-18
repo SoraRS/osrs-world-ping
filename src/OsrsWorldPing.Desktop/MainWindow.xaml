@@ -231,7 +231,7 @@
                 </ContentPresenter>
               </Canvas>
             </Grid>
-            <StackPanel x:Name="WorldList" VerticalAlignment="Top" SnapsToDevicePixels="False">
+            <StackPanel x:Name="WorldList" VerticalAlignment="Top" SnapsToDevicePixels="False" Margin="0,0,0,52">
               <StackPanel.RenderTransform>
                 <TransformGroup>
                   <TranslateTransform x:Name="WorldNavigationOffset" />

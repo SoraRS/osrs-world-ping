@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using OsrsWorldPing.Core;
@@ -10,6 +12,9 @@ namespace OsrsWorldPing.Desktop.Tests;
 
 public sealed partial class DesktopTests
 {
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowEnabled(IntPtr window);
     [Fact]
     public Task TrackingButtonSticksAndBackToTopFadesAtTheSameScrollThreshold() => OnUiThreadAsync(async () =>
     {
@@ -36,6 +41,9 @@ public sealed partial class DesktopTests
             Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y), 0, 1);
             scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y), 0, 1);
+            var hidden = (ItemsControl)main.FindName("HiddenCards");
+            double lastCardBottom = Children<WorldTile>(hidden).Max(tile => tile.TranslatePoint(new Point(0, tile.ActualHeight), scroll).Y);
+            Assert.True(lastCardBottom <= back.TranslatePoint(new Point(), scroll).Y, "The floating return button must not cover the last row.");
             Preview(main, "tracking-sticky-controls.png");
             await ClickAsync(back); await UntilAsync(() => scroll.VerticalOffset == 0 && back.Visibility == Visibility.Hidden);
             Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y - threshold), 0, 1);
@@ -89,7 +97,7 @@ public sealed partial class DesktopTests
                 ((Button)main.FindName("LatestLogButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent))));
             await UntilAsync(() => Application.Current.Windows.OfType<DiagnosticsWindow>().Any());
             var log = Application.Current.Windows.OfType<DiagnosticsWindow>().Single();
-            Assert.Same(main, log.Owner); Assert.False(main.IsEnabled);
+            Assert.Same(main, log.Owner); Assert.False(IsWindowEnabled(new WindowInteropHelper(main).Handle));
             var table = (DataGrid)log.FindName("DiagnosticTable");
             Assert.True(table.IsReadOnly); Assert.Equal(80, table.Items.Count);
             var rows = table.Items.Cast<DiagnosticRow>().ToArray();
@@ -99,7 +107,7 @@ public sealed partial class DesktopTests
             h.Probe.Return(new ProbeResult(ProbeStatus.TimedOut, Diagnostic: new("ICMP", "127.0.0.1", "TimedOut")));
             await h.Engine.RecheckAsync(); await UntilAsync(() => main.Model.HealthText == "80 connection issues");
             Assert.All(rows, row => Assert.EndsWith(" ms", row.Reading));
-            log.Close(); await click; Assert.True(main.IsEnabled);
+            log.Close(); await click; Assert.True(IsWindowEnabled(new WindowInteropHelper(main).Handle));
             Preview(main, "application-connection-issues.png");
         }
         finally
