@@ -21,11 +21,11 @@ The application was previously called **OSRS Check Ping**. On first launch, Worl
 
 ## Read your worlds
 
-The dashboard shows up to **30 eligible worlds** in separate three-column Members and Free to play sections on a large display, plus **five favorites** in a separate row above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. A ping change does not shuffle the list. The **BEST** line identifies the tracked world with the lowest current latency. Smaller windows use fewer columns and allow scrolling.
+The dashboard shows up to **30 eligible worlds** in separate three-column Members and Free to play sections on a large display, plus **five favorites** in a separate row above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. A ping change does not shuffle the list. The **BEST** line shows the lowest current latency, followed by its region flag and world number. **WORLDS** shows the total live count in gold, the live free-to-play count in silver, and saved favorites in pink (including unavailable favorites). Free-to-play favorites are included in both relevant counts. Smaller windows use fewer columns and allow scrolling.
 
 | On the tile | What it means |
 | --- | --- |
-| Heart at the left | Red means a saved favorite; grey means you can add it. Click to toggle. |
+| Heart at the left | A filled red heart marks a saved favorite; a thin, unfilled grey heart can be added. Click to toggle. |
 | ★ Members section; gold world numbers | Members worlds. |
 | ☆ Free to play section; darker silver world numbers | Free-to-play worlds. |
 | Number in ms | Your latest network round-trip time. Lower is better. |
@@ -38,7 +38,7 @@ The dashboard shows up to **30 eligible worlds** in separate three-column Member
 
 Live worlds update every **five seconds** by default. Other worlds receive no regular live checks. Every **five minutes**, a background review checks the hidden worlds and updates the selection. This review continues even when you choose a live refresh interval longer than five minutes.
 
-Ordinary worlds leave the live selection after one minute's worth of consecutive slow or failed readings—12 at the default interval. A good reading resets the count. They can return at a background review or through **Check connection**. Favorites remain tracked regardless of latency or failures.
+Ordinary worlds leave the live selection after one minute's worth of consecutive slow or failed readings—12 at the default interval. A good reading resets the count. They can return at a background review or through **Refresh worlds**. Favorites remain tracked regardless of latency or failures.
 
 Ping measures your network connection, **not server ticks**. A low reading does not guarantee a lag-free game, and an ICMP timeout does not necessarily mean a world is offline.
 
@@ -46,10 +46,10 @@ Ping measures your network connection, **not server ticks**. A low reading does 
 
 Click the **gear** or press **Ctrl+,**. Settings opens inside the same window. **World tracking** keeps the live worlds visible; **Application** and **About** show their settings without the world list. Monitoring continues on every tab. Click the gear again or press **Esc** to return. Page changes fade and slide smoothly; motion follows Windows' animation preference.
 
-- **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
+- **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. The toggle stays at the top of the content area once you scroll past it. **Back to top** fades in at that point, remains at the bottom of the window, and returns you to the beginning of the page. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
 - **Favorites:** use the heart to save up to five worlds, including a world outside the normal cutoff. Favorites use their own slots and never appear twice. Remove a favorite before adding a sixth. Removing its heart restores automatic selection; it may return to the hidden list.
 - **Application:** set a latency cutoff from **1–2,000 ms** and refresh interval from **5–600 seconds**, then select **Apply settings**. Both values are required. Always-on-top and the minimize/close-to-tray options start disabled.
-- **Check connection:** in Application, check every world again. Its status distinguishes all worlds replying from partial or unavailable results. Use it after raising the cutoff to find newly eligible worlds immediately.
+- **Refresh worlds:** in Application, check every world again. The centered status shows green **OK** for expected responses, orange **connection issues** for unexpected results, or red **connection failures** for explicit unreachable responses from worlds listed online. Catalogue-reported offline worlds are expected; a timeout alone is an issue, not proof of an offline server. Hover the status for details. **Latest log** opens a local modal table of the most recent checks, with hostnames, check times, reading sources, and native results. Use it after raising the cutoff to find newly eligible worlds immediately.
 - **Reset to default:** restore the 30 ms cutoff, five-second refresh, and disabled window/tray options. Favorites and saved window placement are kept.
 - **About:** find the version, description, SoraRS's GitHub and Discord profiles, project/support links, privacy information, signing status, and license.
 
@@ -59,13 +59,13 @@ The bottom of settings shows when the catalogue was updated. The reserved progre
 
 **I still see the previous interface.** Fully exit older copies, download the executable artifact from the intended successful build, and launch the extracted file directly. Check **About** for version 1.4.0 or newer and update your shortcut.
 
-**No ordinary worlds appear.** Open **Application** to check progress or a notice. The default 30 ms cutoff may be too low for your location. Raise it, select **Apply settings**, then **Check connection**. You can also favorite a world regardless of ping.
+**No ordinary worlds appear.** Open **Application** to check progress or a notice. The default 30 ms cutoff may be too low for your location. Raise it, select **Apply settings**, then **Refresh worlds**. You can also favorite a world regardless of ping.
 
-**Some worlds show No reply or Unreachable.** Brief disconnections and missed ICMP replies are expected on some connections. Open **Application → Diagnostics** for the failure breakdown and **Copy diagnostics** if reporting a problem. [Connection result meanings](docs/CONNECTIONS.md) explain the different conditions. A timeout does not prove the world is offline or that ICMP is blocked.
+**Some worlds show No reply or Unreachable.** Brief disconnections and missed ICMP replies are expected on some connections. Open **Application → Latest log** for the failure breakdown if reporting a problem. The table is a snapshot when opened; select rows and press **Ctrl+C** if you want to share them. [Connection result meanings](docs/CONNECTIONS.md) explain the different conditions. A timeout does not prove the world is offline or that ICMP is blocked.
 
 **Everything times out.** Check your connection, VPN, firewall, and network rules. Some networks block ICMP even when the game works. Try another network before assuming every world is offline; administrator access is not normally required.
 
-**The world list will not download.** The app uses its last saved catalogue when possible. Application shows the notice; settings shows the catalogue's saved time. Connect to the internet and select **Check connection** to retry.
+**The world list will not download.** The app uses its last saved catalogue when possible. Application shows the notice; settings shows the catalogue's saved time. Connect to the internet and select **Refresh worlds** to retry.
 
 **Windows asks for a runtime.** Install the **x64 .NET 10 Desktop Runtime** linked above, then reopen the app.
 
@@ -81,7 +81,7 @@ The bottom of settings shows when the catalogue was updated. The reserved progre
 
 ## Privacy and help
 
-Preferences, favorites, restored window placement, and the last world catalogue are saved locally. The app downloads Jagex's public catalogue and probes its supplied hosts. There is no game account login, analytics, or automatic saved latency history. **Copy diagnostics** copies the current world-host readings and technical failure details to your clipboard only when you choose it. Read [Privacy](docs/PRIVACY.md) for details.
+Preferences, favorites, restored window placement, and the last world catalogue are saved locally. The app downloads Jagex's public catalogue and probes its supplied hosts. There is no game account login, analytics, or automatic saved latency history. **Latest log** displays the current world-host readings and technical failure details locally. It does not save a history or upload a report. Copying selected table rows with **Ctrl+C** is optional. Read [Privacy](docs/PRIVACY.md) for details.
 
 [Report a problem](https://github.com/SoraRS/osrs-world-ping/issues) with your app version, Windows version, display scaling, and what happened. Build instructions and Windows acceptance checks are in [the developer guide](docs/DEVELOPMENT.md).
 

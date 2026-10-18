@@ -55,6 +55,7 @@
   <SolidColorBrush x:Key="Muted" Color="#B2ADA4"/>
   <SolidColorBrush x:Key="Gold" Color="#E0BC55"/>
   <SolidColorBrush x:Key="Silver" Color="#9DA5AF"/>
+  <SolidColorBrush x:Key="StickySurface" Color="#ED151B1E"/>
   <SolidColorBrush x:Key="ActivityInk" Color="#96978F"/>
   <SolidColorBrush x:Key="Line" Color="#60513B"/>
   <SolidColorBrush x:Key="Surface" Color="#EE202426"/>
@@ -275,8 +276,13 @@
       <Setter.Value>
         <ControlTemplate TargetType="ToggleButton">
           <Border Background="Transparent" CornerRadius="4">
-            <Path Width="14" Height="14" Stretch="Uniform" Fill="{TemplateBinding Foreground}" Data="M12,21 C9,18 1,13 1,7 C1,0 9,-1 12,5 C15,-1 23,0 23,7 C23,13 15,18 12,21 Z"/>
+            <Path x:Name="Heart" Width="14" Height="14" Stretch="Uniform" Fill="Transparent" Stroke="{TemplateBinding Foreground}" StrokeThickness="1" Data="M12,21 C9,18 1,13 1,7 C1,0 9,-1 12,5 C15,-1 23,0 23,7 C23,13 15,18 12,21 Z"/>
           </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Heart" Property="Fill" Value="{Binding Foreground, RelativeSource={RelativeSource TemplatedParent}}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
     </Setter>

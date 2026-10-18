@@ -15,7 +15,9 @@ An ICMP check measures a network echo round trip, not the game's tick rate or lo
 
 A negative population in the downloaded catalogue is independently noted as the catalogue reporting that world offline. It does not change an ICMP timeout into a proven network diagnosis. Catalogue age remains visible in settings.
 
-The connection check distinguishes all replies, partial replies, and no successful replies. Partial replies use an information indicator and provide the actual counts; the application does not require every listed world to answer ICMP to be useful. **Diagnostics** contains the current failure breakdown. **Copy diagnostics** is an explicit clipboard action, with no automatic report history or upload.
+**Application** shows a centered health indicator. Green **OK** means every checked world returned as expected, including catalogue-reported offline worlds. Orange **N connection issues** counts unexpected responses such as no reply, DNS errors, permission errors, and unavailable favorites. Red **N connection failures** takes precedence when catalogue-listed online worlds return an explicit unreachable result. These are observed reachability failures, which can originate on the network path; they do not establish that the game process itself is offline. The tooltip includes both issue and failure counts. Pending checks or missing catalogue data use a neutral status rather than OK.
+
+**Refresh worlds** rechecks the catalogue and worlds. **Latest log** opens an owned modal table with a frozen snapshot of the current world-host readings, catalogue availability, source, local check time, stage, native status, and resolved address. Close and reopen it for newer readings. There is no automatic report history or upload; Ctrl+C copies selected rows only when you choose it.
 
 Ordinary worlds still leave live monitoring after a minute's worth of consecutive bad readings. Favorites remain tracked through failures. The background five-minute review can promote eligible hidden worlds again. One failed reading does not immediately remove an ordinary world.
 
