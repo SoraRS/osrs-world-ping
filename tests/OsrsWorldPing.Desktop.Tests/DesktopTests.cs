@@ -17,7 +17,7 @@ using OsrsWorldPing.Desktop;
 
 namespace OsrsWorldPing.Desktop.Tests;
 
-public sealed class DesktopTests
+public sealed partial class DesktopTests
 {
     private static readonly Lazy<Task<Dispatcher>> Ui = new(() =>
     {
