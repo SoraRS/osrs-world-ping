@@ -140,12 +140,12 @@ public sealed partial class DesktopTests
             Assert.False(((Button)main.FindName("MaximizeButton")).IsEnabled);
             await ResizeAsync(main, 1920, 1040);
             Assert.Single(PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures);
-            Assert.Equal(3, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
+            Assert.Equal(5, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
             var scroll = (ScrollViewer)main.FindName("PageScroll");
             var cards = (ItemsControl)main.FindName("MemberCards"); var favorites = (ItemsControl)main.FindName("FavoriteCards");
             Assert.Equal(16, cards.Items.Count); Assert.Equal(14, ((ItemsControl)main.FindName("FreeCards")).Items.Count); Assert.Equal(5, favorites.Items.Count);
-            Assert.Equal(264, cards.ActualHeight); Assert.Equal(88, favorites.ActualHeight);
-            Assert.True(scroll.ExtentHeight < 1000); // A full favorite group can scroll in the provisional fixed size.
+            Assert.Equal(176, cards.ActualHeight); Assert.Equal(44, favorites.ActualHeight);
+            Assert.True(scroll.ScrollableHeight < 1); // All 35 live worlds fit in the fixed design.
             Assert.Empty(Children<ListBox>(main)); Assert.Empty(Children<DataGrid>(main));
             Assert.Null(((Grid)main.FindName("TitleBar")).Background);
             WorldTile Tile(int id) => Children<WorldTile>(main).Single(t => t.IsVisible && t.DataContext is WorldCardModel w && w.Id == id);
@@ -166,7 +166,7 @@ public sealed partial class DesktopTests
                 var tiles = Children<WorldTile>(section).OrderBy(t => ((WorldCardModel)t.DataContext).Id).ToArray();
                 for (int i = 0; i < tiles.Length; i++)
                 {
-                    var (row, column) = WorldColumnLayout.Position(i, tiles.Length, 3);
+                    var (row, column) = WorldColumnLayout.Position(i, tiles.Length, main.ColumnCount);
                     var point = tiles[i].TranslatePoint(new Point(), section);
                     Assert.InRange(Math.Abs(point.Y - row * 44), 0, 1);
                     Assert.InRange(Math.Abs(point.X - column * Children<WorldColumnsPanel>(section).Single().ColumnPitch), 0, 1);
@@ -345,7 +345,7 @@ public sealed partial class DesktopTests
                 return new ProbeResult(ProbeStatus.Success, 10);
             };
             Task scan = h.Engine.RecheckAsync(); await entered.Task; await UntilAsync(() => main.Model.Snapshot.IsScanning && main.Model.Snapshot.ScanCompleted > 0);
-            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(43, footer.ActualHeight);
+            main.UpdateLayout(); Assert.Equal(before, footer.TranslatePoint(new Point(), main)); Assert.Equal(100, footer.ActualHeight);
             var progress = (ProgressBar)main.FindName("ReviewProgress");
             Assert.Equal(1, progress.Opacity); Assert.InRange(progress.Value, 1, 39);
             Assert.All(Children<Border>(progress), border => Assert.Equal(new Thickness(0), border.BorderThickness));
@@ -387,7 +387,7 @@ public sealed partial class DesktopTests
             Preview(main, "hidden-worlds-opening.png");
             await UntilAsync(() => !main.IsRevealingWorlds);
             double expandedHeight = reveal.ActualHeight;
-            Assert.True(expandedHeight > 600); Assert.Equal(180, chevron.Angle);
+            Assert.Equal(Math.Ceiling(cards.Items.Count / 5d) * 44, expandedHeight); Assert.Equal(180, chevron.Angle);
             Assert.True(button.IsKeyboardFocused);
             Assert.True(SetCursorPos(1, 1)); await UntilAsync(() => !button.IsMouseOver); await Task.Delay(200);
             // A mouse click retains keyboard focus, but must not retain hover ink or scale.
@@ -632,9 +632,10 @@ public sealed partial class DesktopTests
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
             var cards = (ItemsControl)main.FindName(members ? "MemberCards" : "FreeCards");
-            Assert.Equal(30, cards.Items.Count); Assert.Equal(440, cards.ActualHeight);
+            Assert.Equal(30, cards.Items.Count); Assert.Equal(264, cards.ActualHeight);
+            Assert.Equal(5, Children<WorldTile>(cards).Select(tile => tile.TranslatePoint(new Point(), cards).X).Distinct().Count());
             Assert.False(members ? main.Model.HasFreeToPlay : main.Model.HasMembers);
-            Assert.True(((ScrollViewer)main.FindName("PageScroll")).ExtentHeight < 1000);
+            Assert.True(((ScrollViewer)main.FindName("PageScroll")).ScrollableHeight < 1);
             Preview(main, members ? "dashboard-all-members.png" : "dashboard-all-free.png");
         }
         finally { await CloseAsync(main); await h.DisposeAsync(); }

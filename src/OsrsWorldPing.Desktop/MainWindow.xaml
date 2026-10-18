@@ -106,14 +106,17 @@
             <TabItem Header="About">
               <Border x:Name="AboutSheet" Padding="20,14" MaxWidth="760" HorizontalAlignment="Center">
                 <StackPanel TextBlock.TextAlignment="Center">
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,18" HorizontalAlignment="Center">
-                    <Image Source="{StaticResource AppMark}" Width="70" Height="70" Margin="0,0,16,0" />
-                    <StackPanel VerticalAlignment="Center">
+                  <Grid Margin="0,0,0,18" HorizontalAlignment="Center">
+                    <!-- The title alone defines the center; the mark sits outside its measured width. -->
+                    <Canvas IsHitTestVisible="False">
+                      <Image x:Name="AboutLogo" Source="{StaticResource AppMark}" Width="70" Height="70" Canvas.Left="-86" Canvas.Top="0" />
+                    </Canvas>
+                    <StackPanel x:Name="AboutTitle" VerticalAlignment="Center">
                       <TextBlock Text="OSRS" FontSize="14" Foreground="{StaticResource Gold}" />
                       <TextBlock Text="World Ping" FontFamily="Georgia" FontSize="28" />
                       <TextBlock Text="{Binding Version}" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0" />
                     </StackPanel>
-                  </StackPanel>
+                  </Grid>
                   <StackPanel HorizontalAlignment="Center" Margin="0,0,0,14">
                     <TextBlock Text="Created by" Foreground="{StaticResource Muted}" FontSize="14" TextAlignment="Center" />
                     <TextBlock Text="SoraRS" Foreground="{StaticResource Gold}" FontFamily="Georgia" FontSize="28" TextAlignment="Center" Margin="0,3,0,4" />
@@ -159,8 +162,8 @@
           <RowDefinition Height="*" />
           <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
-        <Grid x:Name="SharedHeader" Margin="0,0,0,12">
-          <Grid.RowDefinitions><RowDefinition Height="110" /></Grid.RowDefinitions>
+        <Grid x:Name="SharedHeader" Margin="0,0,0,6">
+          <Grid.RowDefinitions><RowDefinition Height="54" /></Grid.RowDefinitions>
           <Grid x:Name="SettingsGearHost" Width="64" Height="64" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-10,0,0">
               <Button x:Name="SettingsButton" Style="{StaticResource IconButton}" Padding="8" Command="{Binding ToggleSettings}" AutomationProperties.Name="Open or close settings" ToolTip="Settings (Ctrl+,); Esc returns to worlds" MouseEnter="GearEnter" MouseLeave="GearLeave">
               <Grid Width="44" Height="44">
@@ -211,6 +214,7 @@
           </StackPanel>
 
         </Grid>
+        <TextBlock Grid.Row="0" Height="18" VerticalAlignment="Bottom" HorizontalAlignment="Center" MaxWidth="580" local:Motion.Message="{Binding FavoriteFeedback}" Foreground="{StaticResource Gold}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding FavoriteFeedback}" Opacity="0" />
         <ScrollViewer x:Name="PageScroll" ScrollChanged="PageScrollChanged" SizeChanged="PageViewportChanged" Grid.Row="1" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" CanContentScroll="False">
           <Grid x:Name="PageDeck">
             <Grid x:Name="SettingsReveal" Height="0" VerticalAlignment="Top" ClipToBounds="True" Panel.ZIndex="2" IsHitTestVisible="False">
@@ -234,7 +238,6 @@
                   <TranslateTransform x:Name="WorldScrollOffset" />
                 </TransformGroup>
               </StackPanel.RenderTransform>
-              <TextBlock Height="28" local:Motion.Message="{Binding FavoriteFeedback}" Foreground="{StaticResource Gold}" FontSize="12" TextWrapping="Wrap" Margin="10,0,10,10" Opacity="0" />
               <StackPanel Visibility="{Binding HasFavorites, Converter={StaticResource VisibleWhenTrue}}" Margin="0,4,0,8" MaxWidth="{Binding FavoriteGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Center">
                 <TextBlock x:Name="FavoritesHeader" Text="{Binding Favorites.Count, StringFormat=❤ Favorite {0}}" Foreground="#F27D8C" FontSize="12" Margin="11,0,0,5" />
                 <ItemsControl x:Name="FavoriteCards" ItemsSource="{Binding Favorites}" ItemTemplate="{StaticResource WorldCard}">
@@ -246,7 +249,7 @@
                 </ItemsControl>
               </StackPanel>
               <StackPanel x:Name="WorldSections" MaxWidth="{Binding WorldGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Center">
-              <StackPanel Margin="0,4,0,5" Visibility="{Binding HasMembers, Converter={StaticResource VisibleWhenTrue}}">
+              <StackPanel Margin="0,4,0,0" Visibility="{Binding HasMembers, Converter={StaticResource VisibleWhenTrue}}">
                 <TextBlock x:Name="MembersHeader" Text="{Binding Members.Count, StringFormat=★ Members {0}}" Foreground="{StaticResource Gold}" FontSize="12" Margin="9,0,0,5" />
                 <ItemsControl x:Name="MemberCards" ItemsSource="{Binding Members}" ItemTemplate="{StaticResource WorldCard}">
                   <ItemsControl.ItemsPanel>
@@ -256,7 +259,15 @@
                   </ItemsControl.ItemsPanel>
                 </ItemsControl>
               </StackPanel>
-              <StackPanel Margin="0,4,0,5" Visibility="{Binding HasFreeToPlay, Converter={StaticResource VisibleWhenTrue}}">
+              <StackPanel Visibility="{Binding HasFreeToPlay, Converter={StaticResource VisibleWhenTrue}}">
+                <StackPanel.Style>
+                  <Style TargetType="StackPanel">
+                    <Setter Property="Margin" Value="0,4,0,0" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasMembers}" Value="True"><Setter Property="Margin" Value="0,44,0,0" /></DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </StackPanel.Style>
                 <TextBlock x:Name="FreeToPlayHeader" Text="{Binding FreeToPlay.Count, StringFormat=☆ Free to play {0}}" Foreground="{StaticResource Silver}" FontSize="12" Margin="9,0,0,5" />
                 <ItemsControl x:Name="FreeCards" ItemsSource="{Binding FreeToPlay}" ItemTemplate="{StaticResource WorldCard}">
                   <ItemsControl.ItemsPanel>
@@ -282,7 +293,7 @@
                 <TextBlock Text="{Binding EmptyDescription}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,12,0,18" />
                 <Button Content="Open connection settings" Command="{Binding OpenConnectionSettings}" HorizontalAlignment="Center" />
               </StackPanel>
-              <Border x:Name="TrackingControlAnchor" Height="{Binding ActualHeight, ElementName=TrackingControlHost}" />
+              <Border x:Name="TrackingControlAnchor" Height="{Binding ActualHeight, ElementName=BackToTopGap}" />
               <Grid x:Name="HiddenWorldsReveal" Height="0" Visibility="Collapsed" IsHitTestVisible="False" MaxWidth="{Binding WorldGridWidth, RelativeSource={RelativeSource AncestorType={x:Type local:MainWindow}}}" HorizontalAlignment="Stretch">
                 <Canvas>
                   <local:RevealItemsControl x:Name="HiddenCards" ItemsSource="{Binding Hidden}" ItemTemplate="{StaticResource WorldCard}" VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling" Width="{Binding ActualWidth, ElementName=HiddenWorldsReveal}" Opacity="0" SizeChanged="HiddenCardsSizeChanged">
@@ -300,12 +311,11 @@
                   </local:RevealItemsControl>
                 </Canvas>
               </Grid>
-              <Border x:Name="CatalogueBottomSpacer" Height="0" />
             </StackPanel>
           </Grid>
         </ScrollViewer>
         <Grid Grid.Row="1" ClipToBounds="True" Panel.ZIndex="3" PreviewMouseWheel="ScrollControlsMouseWheel" PreviewKeyDown="ScrollControlsKeyDown">
-          <Border x:Name="TrackingControlHost" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" CornerRadius="8">
+          <Border x:Name="TrackingControlHost" Height="52" Background="Transparent" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Top" CornerRadius="8">
             <Border.RenderTransform>
               <TransformGroup>
                 <TranslateTransform x:Name="TrackingStickyOffset" />
@@ -313,7 +323,7 @@
                 <TranslateTransform x:Name="TrackingNavigationOffset" />
               </TransformGroup>
             </Border.RenderTransform>
-            <ToggleButton x:Name="ShowAllButton" Style="{StaticResource RevealToggle}" IsChecked="{Binding ShowAllWorlds}" AutomationProperties.Name="Show or hide all other worlds" Margin="0,15,0,12">
+            <ToggleButton x:Name="ShowAllButton" Style="{StaticResource RevealToggle}" IsChecked="{Binding ShowAllWorlds}" AutomationProperties.Name="Show or hide all other worlds" VerticalAlignment="Center">
               <StackPanel>
                 <TextBlock Text="{Binding ShowAllLabel}" HorizontalAlignment="Center" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" FontSize="12" />
                 <Path x:Name="ShowAllChevron" Data="M1,1 L8,8 L15,1" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" StrokeThickness="1.6" Width="15" Height="9" Stretch="Uniform" Margin="0,6,0,0" RenderTransformOrigin="0.5,0.5">
@@ -324,19 +334,21 @@
               </StackPanel>
             </ToggleButton>
           </Border>
-          <Button x:Name="BackToTopButton" Style="{StaticResource IconButton}" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,8" Padding="14,8" Background="#ED151B1E" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" Click="BackToTopClick" AutomationProperties.Name="Back to top">
+        </Grid>
+        <Grid x:Name="ReviewFooter" Grid.Row="2" Height="100" Margin="10,0,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="85" />
+            <RowDefinition Height="15" />
+          </Grid.RowDefinitions>
+          <Grid x:Name="BackToTopGap" PreviewMouseWheel="ScrollControlsMouseWheel" PreviewKeyDown="ScrollControlsKeyDown">
+          <Button x:Name="BackToTopButton" Style="{StaticResource IconButton}" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="14,8" Background="Transparent" Opacity="0" Visibility="Hidden" IsHitTestVisible="False" Click="BackToTopClick" AutomationProperties.Name="Back to top">
             <StackPanel Orientation="Horizontal">
               <Path Data="M1,8 L8,1 L15,8" Stroke="{StaticResource Gold}" StrokeThickness="1.6" Width="15" Height="9" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center" />
               <TextBlock Text="Back to top" Foreground="{StaticResource Gold}" />
             </StackPanel>
           </Button>
-        </Grid>
-        <Grid x:Name="ReviewFooter" Grid.Row="2" Height="43" Margin="10,5,10,0" Opacity="{Binding ShowSettings, Converter={StaticResource BoolOpacity}}" IsHitTestVisible="{Binding ShowSettings}">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="10" />
-            <RowDefinition Height="*" />
-          </Grid.RowDefinitions>
-          <ProgressBar x:Name="ReviewProgress" Minimum="0" Maximum="{Binding ScanMaximum}" Value="{Binding Snapshot.ScanCompleted}" Height="3" Foreground="{StaticResource Gold}" Background="#343A3B" ToolTip="{Binding ScanStatus}">
+          </Grid>
+          <ProgressBar x:Name="ReviewProgress" VerticalAlignment="Bottom" Minimum="0" Maximum="{Binding ScanMaximum}" Value="{Binding Snapshot.ScanCompleted}" Height="3" Foreground="{StaticResource Gold}" Background="#343A3B" ToolTip="{Binding ScanStatus}">
             <ProgressBar.Style>
               <Style TargetType="ProgressBar" BasedOn="{StaticResource {x:Type ProgressBar}}">
                 <Setter Property="Opacity" Value="0" />
@@ -348,7 +360,7 @@
               </Style>
             </ProgressBar.Style>
           </ProgressBar>
-          <TextBlock Grid.Row="1" Text="{Binding WorldsUpdatedAt}" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="11" Foreground="{StaticResource Muted}" />
+          <TextBlock x:Name="WorldsUpdatedTimestamp" Grid.Row="1" Text="{Binding WorldsUpdatedAt}" HorizontalAlignment="Center" VerticalAlignment="Bottom" FontSize="11" Foreground="{StaticResource Muted}" />
         </Grid>
       </Grid>
     </Grid>

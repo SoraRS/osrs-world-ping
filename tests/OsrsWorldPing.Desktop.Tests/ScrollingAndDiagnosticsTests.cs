@@ -32,7 +32,7 @@ public sealed partial class DesktopTests
             var anchor = (Border)main.FindName("TrackingControlAnchor");
             var back = (Button)main.FindName("BackToTopButton");
             var toggle = (ToggleButton)main.FindName("ShowAllButton");
-            double threshold = anchor.TranslatePoint(new Point(), scroll).Y;
+            double threshold = host.TranslatePoint(new Point(), scroll).Y;
             Assert.True(threshold > 100); Assert.Equal(Visibility.Hidden, back.Visibility);
             Assert.True(toggle.Focus());
             void KeyOnToggle(Key key) => toggle.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice,
@@ -55,7 +55,7 @@ public sealed partial class DesktopTests
             Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y), 0, 1);
             var hidden = (ItemsControl)main.FindName("HiddenCards");
             double lastCardBottom = Children<WorldTile>(hidden).Max(tile => tile.TranslatePoint(new Point(0, tile.ActualHeight), scroll).Y);
-            Assert.True(lastCardBottom <= back.TranslatePoint(new Point(), scroll).Y, "The floating return button must not cover the last row.");
+            Assert.True(lastCardBottom <= back.TranslatePoint(new Point(), scroll).Y, "The footer return button must sit outside the scrolling list.");
             Preview(main, "tracking-sticky-controls.png");
             await ClickAsync(back); await UntilAsync(() => scroll.VerticalOffset == 0 && back.Visibility == Visibility.Hidden);
             Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y - Math.Min(threshold, scroll.ActualHeight - host.ActualHeight)), 0, 1);
@@ -87,7 +87,7 @@ public sealed partial class DesktopTests
             await UntilAsync(() => main.Model.Tracked.Count == 30); await ResizeAsync(main, 1920, 1040);
             Assert.Equal(16, main.Model.FreeWorldCount); Assert.Equal(5, main.Model.FavoriteWorldCount);
             Assert.True(((FlagGlyph)main.FindName("BestRegionFlag")).TranslatePoint(new Point(), main).X < ((TextBlock)main.FindName("BestWorldNumber")).TranslatePoint(new Point(), main).X);
-            Assert.All(Children<WorldTile>(main), tile => Assert.InRange(tile.ActualWidth, 1, 240));
+            Assert.All(Children<WorldTile>(main), tile => Assert.InRange(tile.ActualWidth, 1, 144));
             var ordinary = Children<WorldTile>((ItemsControl)main.FindName("MemberCards")).First();
             var heart = (ToggleButton)ordinary.FindName("FavoriteToggle");
             var outline = Children<System.Windows.Shapes.Path>(heart).Single();

@@ -20,12 +20,12 @@ public partial class MainWindow : Window
     static MainWindow() => WindowStateProperty.OverrideMetadata(typeof(MainWindow),
         new FrameworkPropertyMetadata(WindowState.Normal, null, (_, value) =>
             (WindowState)value == WindowState.Maximized ? WindowState.Normal : value));
-    public static readonly DependencyProperty ColumnCountProperty = DependencyProperty.Register(nameof(ColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(3));
+    public static readonly DependencyProperty ColumnCountProperty = DependencyProperty.Register(nameof(ColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(5));
     public static readonly DependencyProperty FavoriteColumnCountProperty = DependencyProperty.Register(nameof(FavoriteColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(5));
     public int FavoriteColumnCount { get => (int)GetValue(FavoriteColumnCountProperty); private set => SetValue(FavoriteColumnCountProperty, value); }
     public int ColumnCount { get => (int)GetValue(ColumnCountProperty); private set => SetValue(ColumnCountProperty, value); }
     public static readonly DependencyProperty WorldGridWidthProperty = DependencyProperty.Register(nameof(WorldGridWidth), typeof(double), typeof(MainWindow), new PropertyMetadata(720d));
-    public static readonly DependencyProperty FavoriteGridWidthProperty = DependencyProperty.Register(nameof(FavoriteGridWidth), typeof(double), typeof(MainWindow), new PropertyMetadata(1000d));
+    public static readonly DependencyProperty FavoriteGridWidthProperty = DependencyProperty.Register(nameof(FavoriteGridWidth), typeof(double), typeof(MainWindow), new PropertyMetadata(720d));
     public double WorldGridWidth { get => (double)GetValue(WorldGridWidthProperty); private set => SetValue(WorldGridWidthProperty, value); }
     public double FavoriteGridWidth { get => (double)GetValue(FavoriteGridWidthProperty); private set => SetValue(FavoriteGridWidthProperty, value); }
     public static readonly DependencyProperty IsNavigatingProperty = DependencyProperty.Register(nameof(IsNavigating), typeof(bool), typeof(MainWindow), new PropertyMetadata(false));
@@ -159,11 +159,10 @@ public partial class MainWindow : Window
     }
     private void UpdateLayoutDensity()
     {
-        ColumnCount = Math.Clamp((int)((FixedWindowLayout.DesignWidth - 48) / 240), 1, 3);
-        WorldGridWidth = ColumnCount * 240;
+        // Keep the design at five columns; the Viewbox scales the whole fixed window together.
+        ColumnCount = FavoriteColumnCount = 5;
+        WorldGridWidth = FavoriteGridWidth = FixedWindowLayout.DesignWidth - 48;
         Metrics.MaxWidth = FixedWindowLayout.DesignWidth - 200;
-        FavoriteColumnCount = Math.Clamp((int)((FixedWindowLayout.DesignWidth - 48) / 200), 1, 5);
-        FavoriteGridWidth = FavoriteColumnCount * 200;
     }
 
     private void GearEnter(object sender, MouseEventArgs args) => RotateGear(_gearRestAngle + 90);
@@ -285,7 +284,6 @@ public partial class MainWindow : Window
         _hiddenTargetWidth = Math.Max(1, HiddenWorldsReveal.ActualWidth);
         // Change the scroll extent once. The clip reveals content without remeasuring the page every frame.
         HiddenWorldsReveal.Height = _hiddenTargetHeight;
-        CatalogueBottomSpacer.Height = opening ? 52 : 0;
         WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
         PageScroll.UpdateLayout();
         WorldScrollOffset.Y = initialTop - WorldList.TranslatePoint(new Point(), PageScroll).Y;
@@ -315,7 +313,6 @@ public partial class MainWindow : Window
         bool visible = Model.ShowHiddenWorlds;
         HiddenCards.RetainRealizedContainers = false;
         HiddenWorldsReveal.Height = visible ? _hiddenTargetHeight : 0;
-        CatalogueBottomSpacer.Height = visible ? 52 : 0;
         HiddenWorldsClip.BeginAnimation(RectangleGeometry.RectProperty, null);
         HiddenWorldsClip.Rect = new Rect(0, 0, _hiddenTargetWidth, visible ? _hiddenTargetHeight : 0);
         WorldScrollOffset.BeginAnimation(TranslateTransform.YProperty, null); WorldScrollOffset.Y = 0;
@@ -396,10 +393,16 @@ public partial class MainWindow : Window
     private void UpdateScrollControls()
     {
         if (!_ready || _closed) return;
-        double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y - WorldScrollOffset.Y - WorldNavigationOffset.Y;
+        double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y - WorldScrollOffset.Y - WorldNavigationOffset.Y
+            + (TrackingControlAnchor.ActualHeight - TrackingControlHost.ActualHeight) / 2;
         TrackingStickyOffset.Y = Math.Clamp(anchor, 0, Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight));
         bool pinned = Model.ShowWorldTracking && anchor < -.5;
-        TrackingControlHost.Background = pinned ? (Brush)FindResource("StickySurface") : null;
+        // The sticky control has no plate. Clip the scrollable content below its own band so
+        // transparent controls cannot cover tiles. Change geometry only at the threshold/resize.
+        double top = pinned ? TrackingControlHost.ActualHeight : 0;
+        var clip = new Rect(0, top, Math.Max(0, PageScroll.ActualWidth), Math.Max(0, PageScroll.ActualHeight - top));
+        if (PageScroll.Clip is not RectangleGeometry geometry || geometry.Rect != clip)
+            PageScroll.Clip = new RectangleGeometry(clip);
         SetBackToTopVisible(pinned && PageScroll.VerticalOffset > .5);
     }
     private void SetBackToTopVisible(bool visible)

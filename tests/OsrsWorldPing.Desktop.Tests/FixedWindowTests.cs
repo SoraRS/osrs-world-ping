@@ -15,6 +15,64 @@ namespace OsrsWorldPing.Desktop.Tests;
 public sealed partial class DesktopTests
 {
     [Fact]
+    public Task FiveColumnLayoutKeepsTitleCenteredAndNavigationOutsideWorldTiles() => OnUiThreadAsync(async () =>
+    {
+        var h = Samples(321); var main = new MainWindow(h.Engine); main.Show(); Motion.SetEnabled(main, false);
+        try
+        {
+            await UntilAsync(() => main.Model.Tracked.Count == 30);
+            var scroll = (ScrollViewer)main.FindName("PageScroll");
+            var members = (ItemsControl)main.FindName("MemberCards");
+            var free = (ItemsControl)main.FindName("FreeCards");
+            var freeHeader = (TextBlock)main.FindName("FreeToPlayHeader");
+            Assert.Equal(5, main.ColumnCount); Assert.Equal(5, main.FavoriteColumnCount);
+            Assert.True(scroll.ScrollableHeight < 1);
+            Assert.All(Children<WorldTile>(main), tile => Assert.InRange(tile.ActualWidth, 1, 144));
+            Assert.InRange(members.TranslatePoint(new Point(), main).Y, 150, 220);
+            Assert.InRange(freeHeader.TranslatePoint(new Point(), scroll).Y - members.TranslatePoint(new Point(0, members.ActualHeight), scroll).Y, 43.5, 44.5);
+            main.Model.ShowSettings = true; main.Model.ShowAllWorlds = true;
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
+            var hidden = (ItemsControl)main.FindName("HiddenCards");
+            var host = (Border)main.FindName("TrackingControlHost");
+            var toggle = (ToggleButton)main.FindName("ShowAllButton");
+            var back = (Button)main.FindName("BackToTopButton");
+            var timestamp = (TextBlock)main.FindName("WorldsUpdatedTimestamp");
+            double catalogueGap = hidden.TranslatePoint(new Point(), scroll).Y - free.TranslatePoint(new Point(0, free.ActualHeight), scroll).Y;
+            double footerGap = timestamp.TranslatePoint(new Point(), scroll).Y - scroll.ActualHeight;
+            Assert.InRange(Math.Abs(catalogueGap - footerGap), 0, 1);
+            Assert.True(toggle.TranslatePoint(new Point(), scroll).Y >= free.TranslatePoint(new Point(0, free.ActualHeight), scroll).Y);
+            Assert.True(toggle.TranslatePoint(new Point(0, toggle.ActualHeight), scroll).Y <= hidden.TranslatePoint(new Point(), scroll).Y);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)host.Background).Color);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)back.Background).Color);
+            Preview(main, "five-columns-tracking-gaps.png");
+            scroll.ScrollToBottom(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
+            Assert.True(back.IsVisible);
+            Assert.True(back.TranslatePoint(new Point(), scroll).Y >= scroll.ActualHeight);
+            Assert.True(back.TranslatePoint(new Point(0, back.ActualHeight), scroll).Y < timestamp.TranslatePoint(new Point(), scroll).Y);
+            var viewportClip = Assert.IsType<RectangleGeometry>(scroll.Clip).Rect;
+            var toggleBounds = BoundsIn(toggle, scroll);
+            Assert.True(viewportClip.Top >= toggleBounds.Bottom);
+            foreach (var tile in Children<WorldTile>(hidden))
+            {
+                var visible = BoundsIn(tile, scroll); visible.Intersect(viewportClip);
+                Assert.False(visible.IntersectsWith(toggleBounds));
+            }
+            Preview(main, "five-columns-tracking-bottom.png");
+            main.Model.SelectedSettingsTab = 2; await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            foreach (var area in new[] { (768d, 930d), (480d, 640d) })
+            {
+                await ResizeAsync(main, area.Item1, area.Item2);
+                var title = BoundsIn((StackPanel)main.FindName("AboutTitle"), main);
+                var logo = BoundsIn((System.Windows.Controls.Image)main.FindName("AboutLogo"), main);
+                Assert.InRange(Math.Abs(title.Left + title.Width / 2 - main.ActualWidth / 2), 0, 1);
+                Assert.True(logo.Right < title.Left);
+                Preview(main, $"about-text-centered-{area.Item1}.png");
+            }
+        }
+        finally { await CloseAsync(main); await h.DisposeAsync(); }
+    });
+
+    [Fact]
     public Task ExpandedCatalogueKeepsItsCenteredFootprintAsCardsRecycle() => OnUiThreadAsync(async () =>
     {
         var h = Samples(100); h.Catalogue.Worlds = h.Catalogue.Worlds.Select(world => world with { Activity = "-" }).ToArray();
@@ -27,7 +85,7 @@ public sealed partial class DesktopTests
             var scroll = (ScrollViewer)main.FindName("PageScroll");
             var cards = (ItemsControl)main.FindName("HiddenCards");
             var panel = Children<VirtualWorldColumnsPanel>(cards).Single();
-            Assert.True(panel.ColumnOffset > 20);
+            Assert.InRange(panel.ColumnOffset, 0, 10);
             double offset = panel.ColumnOffset;
             foreach (bool bottom in new[] { true, false, true })
             {

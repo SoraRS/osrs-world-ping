@@ -11,7 +11,7 @@ See your connection latency to Old School RuneScape worlds and keep your favorit
 
 **To download a testing build:** sign into GitHub, open [Build and test](https://github.com/SoraRS/osrs-world-ping/actions/workflows/build.yml), and choose a successful run for the branch or version you want. Scroll to **Artifacts**, download **OsrsWorldPing-win-x64**, and extract its ZIP. The interface previews artifact contains pictures, rather than the application. [GitHub's download guide](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) explains the sign-in and download steps.
 
-The fixed-window interface described here is **version 1.5.0 or newer**; check **About**. Older runs contain older executables. Testing builds may be unsigned.
+The fixed-window interface described here is **version 1.5.1 or newer**; check **About**. Older runs contain older executables. Testing builds may be unsigned.
 
 ## Updating an older copy
 
@@ -21,7 +21,7 @@ The application was previously called **OSRS Check Ping**. On first launch, Worl
 
 ## Read your worlds
 
-The dashboard shows up to **30 eligible worlds** in separate three-column Members and Free to play sections, plus **five favorites** in a separate section above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. A ping change does not shuffle the list. The **BEST** line shows the lowest current latency, followed by its region flag and world number. Each section header shows its own count: **Members 29** and **Free to play 1**, for example. Favorites have their own pink count and are not counted again in the ordinary sections.
+The dashboard shows up to **30 eligible worlds** in separate five-column Members and Free to play sections, plus **five favorites** in a separate section above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. Thirty worlds of one membership fit in five columns of six rows. A tile-height gap separates Members from Free to play. A ping change does not shuffle the list. The **BEST** line shows the lowest current latency, followed by its region flag and world number. Each section header shows its own count: **Members 29** and **Free to play 1**, for example. Favorites have their own pink count and are not counted again in the ordinary sections.
 
 | On the tile | What it means |
 | --- | --- |
@@ -46,7 +46,7 @@ Ping measures your network connection, **not server ticks**. A low reading does 
 
 Click the **gear beneath the top-right window controls** or press **Ctrl+,**. The settings tabs appear in the title frame. Settings opens inside the same window. **World tracking** keeps the live worlds visible; **Application** and **About** show their settings without the world list. Monitoring continues on every tab. Click the gear again or press **Esc** to return. Page changes fade and slide smoothly; motion follows Windows' animation preference.
 
-- **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. The toggle stays at the top of the content area once you scroll past it. **Back to top** fades in at that point, remains at the bottom of the window, and returns you to the beginning of the page. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
+- **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. The toggle stays at the top of the content area once you scroll past it. **Back to top** fades in at that point, sits in a transparent control area above the timestamp, and returns you to the beginning of the page. Both controls have no background and stay clear of world tiles. The gap above the unfolded catalogue matches the return control area. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
 - **Favorites:** use the heart to save up to five worlds, including a world outside the normal cutoff. Favorites use their own slots and never appear twice. Remove a favorite before adding a sixth. Removing its heart restores automatic selection; it may return to the hidden list.
 - **Application:** set a latency cutoff from **1–2,000 ms** and refresh interval from **5–600 seconds**, then select **Apply settings**. Both values are required. Always-on-top and the minimize/close-to-tray options start disabled.
 - **Refresh worlds:** in Application, check every world again. The centered status shows green **OK** for expected responses, orange **connection issues** for unexpected results, or red **connection failures** for explicit unreachable responses from worlds listed online. Catalogue-reported offline worlds are expected; a timeout alone is an issue, not proof of an offline server. Hover the status for details. **Latest log** opens a local modal table of the most recent checks, with hostnames, check times, reading sources, and native results. Use it after raising the cutoff to find newly eligible worlds immediately.
@@ -57,7 +57,7 @@ The bottom of settings shows when the catalogue was updated. The reserved progre
 
 ## Common problems
 
-**I still see the previous interface.** Fully exit older copies, download the executable artifact from the intended successful build, and launch the extracted file directly. Check **About** for version 1.5.0 or newer and update your shortcut.
+**I still see the previous interface.** Fully exit older copies, download the executable artifact from the intended successful build, and launch the extracted file directly. Check **About** for version 1.5.1 or newer and update your shortcut.
 
 **No ordinary worlds appear.** Open **Application** to check progress or a notice. The default 30 ms cutoff may be too low for your location. Raise it, select **Apply settings**, then **Refresh worlds**. You can also favorite a world regardless of ping.
 

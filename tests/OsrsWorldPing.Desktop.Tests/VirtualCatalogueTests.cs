@@ -30,7 +30,7 @@ public sealed partial class DesktopTests
                 scroll.ScrollToVerticalOffset(Math.Min(offset, extent));
                 await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
                 var tiles = Children<WorldTile>(cards).ToArray();
-                Assert.InRange(tiles.Length, 1, 90);
+                Assert.InRange(tiles.Length, 1, ((int)Math.Ceiling(scroll.ViewportHeight / 44) + 6) * main.ColumnCount + 1);
                 Assert.Equal(tiles.Length, tiles.Select(t => ((WorldCardModel)t.DataContext).Id).Distinct().Count());
                 foreach (var tile in tiles)
                 {
@@ -54,6 +54,9 @@ public sealed partial class DesktopTests
             await UntilAsync(() => Keyboard.FocusedElement is ToggleButton next &&
                 ReferenceEquals(next.DataContext, main.Model.Hidden[lastInFirstColumn + 1]));
             Assert.True(scroll.VerticalOffset < extent - 100);
+            var focused = Assert.IsType<ToggleButton>(Keyboard.FocusedElement);
+            Assert.True(BoundsIn(focused, scroll).Top >= ((System.Windows.Media.RectangleGeometry)scroll.Clip).Rect.Top,
+                "Keyboard focus must land below the sticky control's clear band.");
             Assert.Equal(probes, h.Probe.Hosts.Count);
             Preview(main, "virtual-catalogue-keyboard.png");
         }

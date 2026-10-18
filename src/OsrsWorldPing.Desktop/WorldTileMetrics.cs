@@ -21,8 +21,8 @@ internal static class WorldTileMetrics
                     bold ? Semibold : Regular, size, Brushes.White, pixelsPerDip).WidthIncludingTrailingWhitespace;
             return width;
         }
-        double reading = Math.Max(56, TextWidth(world.Latency, 13, true));
-        double firstLine = 24 + TextWidth(world.Id.ToString(CultureInfo.CurrentCulture), 16, true) + 9 + reading;
+        double reading = 64;
+        double firstLine = 24 + TextWidth(world.Id.ToString(CultureInfo.CurrentCulture), 16, true) + 6 + reading;
         double secondLine = 23 + TextWidth(world.ActivityLabel, 12);
         return Math.Min(maximum, 16 + Math.Max(firstLine, secondLine));
     }

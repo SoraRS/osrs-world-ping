@@ -125,7 +125,8 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
         var owner = ItemsControl.GetItemsOwner(this);
         if (owner is null || index < 0 || index >= owner.Items.Count || _scroll?.Content is not UIElement content) return;
         double top = TranslatePoint(new Point(), content).Y + WorldColumnLayout.Position(index, owner.Items.Count, Columns).Row * RowHeight;
-        if (top < _scroll.VerticalOffset) _scroll.ScrollToVerticalOffset(top);
+        double inset = (_scroll.Clip as RectangleGeometry)?.Rect.Top ?? 0;
+        if (top < _scroll.VerticalOffset + inset) _scroll.ScrollToVerticalOffset(Math.Max(0, top - inset));
         else if (top + RowHeight > _scroll.VerticalOffset + _scroll.ViewportHeight)
             _scroll.ScrollToVerticalOffset(top + RowHeight - _scroll.ViewportHeight);
         InvalidateMeasure();
