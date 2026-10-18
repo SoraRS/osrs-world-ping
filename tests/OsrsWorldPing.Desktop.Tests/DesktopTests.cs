@@ -137,9 +137,9 @@ public sealed partial class DesktopTests
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30);
             Assert.Equal(WindowState.Normal, main.WindowState);
-            Assert.False(((Button)main.FindName("MaximizeButton")).IsEnabled);
+            Assert.Null(main.FindName("MaximizeButton")); Assert.Null(main.FindName("MaximizeIcon"));
+            Assert.Equal(2, ((StackPanel)main.FindName("WindowButtons")).Children.OfType<Button>().Count());
             await ResizeAsync(main, 1920, 1040);
-            Assert.Single(PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures);
             Assert.Equal(5, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
             var scroll = (ScrollViewer)main.FindName("PageScroll");
             var cards = (ItemsControl)main.FindName("MemberCards"); var favorites = (ItemsControl)main.FindName("FavoriteCards");
@@ -155,7 +155,9 @@ public sealed partial class DesktopTests
             var heart = (ToggleButton)tile.FindName("FavoriteToggle");
             Assert.Null(tile.FindName("MembershipStar")); Assert.False(flag.IsVisible);
             Assert.True(heart.TranslatePoint(new Point(), tile).X < number.TranslatePoint(new Point(), tile).X);
-            Assert.InRange(ping.TranslatePoint(new Point(), tile).X - number.TranslatePoint(new Point(), tile).X - number.ActualWidth, 0, 12);
+            Assert.InRange(ping.TranslatePoint(new Point(), tile).X - number.TranslatePoint(new Point(), tile).X - number.ActualWidth, 5, 7);
+            Assert.Equal(TextAlignment.Left, ping.TextAlignment);
+            Assert.Equal("❤ Favorites", ((TextBlock)main.FindName("FavoritesHeader")).Text);
             Assert.Equal(Color.FromRgb(157, 165, 175), ((SolidColorBrush)number.Foreground).Color);
             Assert.Equal(Color.FromRgb(224, 188, 85), ((SolidColorBrush)((TextBlock)Tile(301).FindName("WorldNumber")).Foreground).Color);
             Assert.Equal(Color.FromRgb(255, 150, 144), ((SolidColorBrush)((TextBlock)Tile(310).FindName("WorldNumber")).Foreground).Color);

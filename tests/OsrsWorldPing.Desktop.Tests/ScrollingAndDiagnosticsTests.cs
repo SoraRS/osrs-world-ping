@@ -119,6 +119,10 @@ public sealed partial class DesktopTests
             Assert.InRange(BoundsIn(reset, main).Top - BoundsIn(apply, main).Bottom, 1, 3);
             Assert.Equal(Colors.Transparent, ((SolidColorBrush)reset.Background).Color);
             Assert.Equal(new Thickness(0), reset.BorderThickness);
+            Assert.Equal(Colors.Transparent, ((SolidColorBrush)latest.Background).Color);
+            Assert.Equal(new Thickness(0), latest.BorderThickness);
+            Assert.Equal(reset.Padding, latest.Padding); Assert.Equal(reset.FontSize, latest.FontSize);
+            Assert.InRange(latest.ActualHeight, 10, 20);
             Assert.InRange(BoundsIn(interval, main).Top - BoundsIn(cutoff, main).Bottom, 20, 30);
             Assert.Empty(Children<CheckBox>(main));
             Assert.DoesNotContain(Children<TextBlock>(main), text => text.Text == "Window & tray");
@@ -154,10 +158,17 @@ public sealed partial class DesktopTests
             Assert.All(rows, row => Assert.EndsWith(" ms", row.Reading));
             log.Close(); await click; Assert.True(IsWindowEnabled(new WindowInteropHelper(main).Handle));
             Preview(main, "application-connection-issues.png");
+            await h.Engine.RecheckAsync(); await UntilAsync(() => main.Model.Health.State == ConnectionHealthState.StableIssues);
+            Assert.Equal("OK", main.Model.HealthText); Assert.Equal("#A9DFBE", main.Model.HealthBrush);
+            Assert.Contains("80 unchanged issue responses", main.Model.HealthDetail);
+            Assert.All(main.Model.Snapshot.Worlds, world => Assert.Equal(ProbeStatus.TimedOut, world.LatestResult!.Status));
+            Preview(main, "application-stable-issue-responses.png");
             h.Probe.Return(new ProbeResult(ProbeStatus.Unreachable, Diagnostic: new("ICMP", "127.0.0.1", "DestinationHostUnreachable")));
             await h.Engine.RecheckAsync(); await UntilAsync(() => main.Model.HealthText == "80 connection failures");
             Assert.Equal("#FF9690", main.Model.HealthBrush);
             Preview(main, "application-connection-failures.png");
+            await h.Engine.RecheckAsync(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Equal("#FF9690", main.Model.HealthBrush);
         }
         finally
         {

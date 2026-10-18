@@ -56,6 +56,7 @@ public sealed record MonitorSnapshot(
     bool IsScanning, int ScanCompleted, int ScanTotal, string? Notice, DateTimeOffset? CatalogueFetchedAt,
     DateTimeOffset? NextHiddenRecheckAt, bool IsRecheckingHidden, DateTimeOffset CapturedAt)
 {
+    public IReadOnlyList<WorldIssueResponse> StableIssueResponses { get; init; } = Array.Empty<WorldIssueResponse>();
     public IReadOnlyList<WorldSnapshot> Favorites => Sort(Worlds.Where(w => w.IsFavorite));
     public IReadOnlyList<WorldSnapshot> Tracked => Sort(Worlds.Where(w => w.IsTracked && !w.IsFavorite));
     public IReadOnlyList<WorldSnapshot> VisibleWorlds => Sort(Worlds.Where(w => w.IsTracked || w.IsFavorite));
