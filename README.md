@@ -36,6 +36,8 @@ The dashboard shows up to **30 eligible worlds** in separate five-column Members
 | Unreachable, DNS error, network error, or permission denied | The diagnostic category explains which part of the check failed. |
 | Unavailable | A saved favorite is missing from the catalogue. |
 
+Long readings are shortened to fit the narrow tiles; hover for the full result and last-check time.
+
 Live worlds update every **five seconds** by default. Other worlds receive no regular live checks. Every **five minutes**, a background review checks the hidden worlds and updates the selection. This review continues even when you choose a live refresh interval longer than five minutes.
 
 Ordinary worlds leave the live selection after one minute's worth of consecutive slow or failed readings—12 at the default interval. A good reading resets the count. They can return at a background review or through **Refresh worlds**. Favorites remain tracked regardless of latency or failures.

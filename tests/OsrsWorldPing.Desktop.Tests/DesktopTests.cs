@@ -60,7 +60,7 @@ public sealed partial class DesktopTests
         window.UpdateLayout();
     }
     private static Rect BoundsIn(FrameworkElement element, Visual ancestor) =>
-        element.TransformToAncestor(ancestor).TransformBounds(new Rect(element.RenderSize));
+        element.TransformToVisual(ancestor).TransformBounds(new Rect(element.RenderSize));
 
     private static async Task ClickAsync(ButtonBase element)
     {
@@ -491,13 +491,16 @@ public sealed partial class DesktopTests
     [Fact]
     public Task ReadingsKeepCardIdentityOrderScrollAndFocusWhileBackgrounded() => OnUiThreadAsync(async () =>
     {
-        var h = Samples(); var main = new MainWindow(h.Engine); var sentinel = new Window { Title = "Foreground sentinel", Width = 350, Height = 180 };
+        var h = Samples(321); var main = new MainWindow(h.Engine); var sentinel = new Window { Title = "Foreground sentinel", Width = 350, Height = 180 };
         main.Show();
         try
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30);
-            main.WindowState = WindowState.Normal; main.Width = 720; main.Height = 360; main.UpdateLayout();
-            var scroll = (ScrollViewer)main.FindName("PageScroll"); scroll.ScrollToVerticalOffset(240); main.UpdateLayout();
+            Motion.SetEnabled(main, false);
+            main.Model.ShowSettings = true; main.Model.ShowAllWorlds = true;
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
+            var scroll = (ScrollViewer)main.FindName("PageScroll"); scroll.ScrollToVerticalOffset(240);
+            await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); main.UpdateLayout();
             Assert.True(scroll.ScrollableHeight > 0, "Use a viewport that actually exercises scrolling.");
             double offset = scroll.VerticalOffset; var cards = main.Model.Tracked.ToArray(); int changes = 0;
             main.Model.Tracked.CollectionChanged += (_, _) => changes++;

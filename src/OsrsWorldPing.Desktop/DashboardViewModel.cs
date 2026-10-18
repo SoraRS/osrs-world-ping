@@ -80,7 +80,7 @@ public sealed class WorldCardModel : ObservableModel
     public bool IsGood => HasWorld && _snapshot.LatestResult?.IsGood(_cutoff) == true;
     public string ReadingLabel => !HasWorld ? "Unavailable" : !_snapshot.IsTracked ? "Scan result" :
         _snapshot.IsScanResult ? "Initial reading" : "Live reading";
-    public string ReadingDetails => $"{ReadingLabel} · {(_snapshot.LastChecked is { } at ? at.ToLocalTime().ToString("g") : "Not checked yet")}" +
+    public string ReadingDetails => $"{ReadingLabel} · {Latency} · {(_snapshot.LastChecked is { } at ? at.ToLocalTime().ToString("g") : "Not checked yet")}" +
         (_snapshot.LatestResult?.Diagnostic is { } detail ? $" · {detail.Stage}: {detail.NativeCode}" : "") +
         (_snapshot.World?.Population < 0 ? " · Catalogue reports this world offline" : "");
     public string AccessibleDescription => $"{WorldLabel}, {Region}, {Membership}, {Activity}, {Latency}" +
