@@ -44,7 +44,7 @@ public sealed partial class DesktopTests
             Input[] wheel = [new() { Data = new() { Mouse = new() { Flags = 0x0800, Data = unchecked((uint)-120) } } }];
             Assert.Equal(1u, SendInput(1, wheel, Marshal.SizeOf<Input>()));
             await UntilAsync(() => scroll.VerticalOffset > 0);
-            scroll.ScrollToTop(); await UntilAsync(() => scroll.VerticalOffset == 0);
+            scroll.ScrollToTop(); await UntilAsync(() => scroll.VerticalOffset == 0 && back.Visibility == Visibility.Hidden);
             scroll.ScrollToVerticalOffset(threshold - 10); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
             Assert.Equal(Visibility.Hidden, back.Visibility);
             scroll.ScrollToVerticalOffset(threshold + 150); await Task.Delay(65);
