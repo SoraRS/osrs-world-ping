@@ -7,11 +7,11 @@ See your connection latency to Old School RuneScape worlds and keep your favorit
 1. Use **Windows x64** and install Microsoft's **[.NET 10 Desktop Runtime (x64)](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)**. Choose **Desktop Runtime**; the standard or ASP.NET runtime alone is not enough.
 2. Download `OsrsWorldPing.exe` from [Releases](https://github.com/SoraRS/osrs-world-ping/releases) when a release is available. Testing builds are available through the steps below.
 3. Extract the download to a folder you want to keep, then open `OsrsWorldPing.exe`. No installer or administrator access is normally required.
-4. The app starts maximized and checks every world once. Open the **gear**, then **Application**, for connection results or a retry.
+4. The app opens at its fixed prototype size and checks every world once. Open the **gear**, then **Application**, for connection results or a retry.
 
 **To download a testing build:** sign into GitHub, open [Build and test](https://github.com/SoraRS/osrs-world-ping/actions/workflows/build.yml), and choose a successful run for the branch or version you want. Scroll to **Artifacts**, download **OsrsWorldPing-win-x64**, and extract its ZIP. The interface previews artifact contains pictures, rather than the application. [GitHub's download guide](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/download-workflow-artifacts) explains the sign-in and download steps.
 
-The interface described here is **version 1.4.0 or newer**; check **About**. Older runs contain older executables. Testing builds may be unsigned.
+The fixed-window interface described here is **version 1.5.0 or newer**; check **About**. Older runs contain older executables. Testing builds may be unsigned.
 
 ## Updating an older copy
 
@@ -57,7 +57,7 @@ The bottom of settings shows when the catalogue was updated. The reserved progre
 
 ## Common problems
 
-**I still see the previous interface.** Fully exit older copies, download the executable artifact from the intended successful build, and launch the extracted file directly. Check **About** for version 1.4.0 or newer and update your shortcut.
+**I still see the previous interface.** Fully exit older copies, download the executable artifact from the intended successful build, and launch the extracted file directly. Check **About** for version 1.5.0 or newer and update your shortcut.
 
 **No ordinary worlds appear.** Open **Application** to check progress or a notice. The default 30 ms cutoff may be too low for your location. Raise it, select **Apply settings**, then **Refresh worlds**. You can also favorite a world regardless of ping.
 

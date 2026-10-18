@@ -40,7 +40,7 @@ Navigation reserves header/footer geometry and uses an overlay deck for settings
 
 ## CI and previews
 
-**Build and test** establishes a 1920×1080 runner desktop before launching WPF tests, runs core tests on Linux and Windows, then verifies single-file publishing and startup/clean exit. WPF constrains windows to the available desktop; changing only the test window size on a smaller runner cannot validate the 1080p baseline. It retains the repeated `Process.Refresh()`/window-handle/title wait that fixed startup detection.
+**Build and test** establishes a 1920×1080 runner desktop so the provisional 768×930 window fits before launching WPF tests. It runs core tests on Linux and Windows, then verifies single-file publishing and startup/clean exit. Proportional smaller-work-area fixtures keep the fixed design intact. The workflow retains the repeated `Process.Refresh()`/window-handle/title wait that fixed startup detection.
 
 The motion acceptance test temporarily enables Windows client-area animations, captures moving gear sparks, exercises reversal and reduced motion, then restores the previous preference in `finally`. It sends the setting-change notification without persisting a profile change.
 
@@ -54,8 +54,8 @@ Review the actual Windows preview artifact and run these checks before approving
 
 | Check | Expected result |
 | --- | --- |
-| 1920×1080 at 100%, five favorites + thirty ordinary worlds | All 35 readable without scrolling; favorites occupy a separate row; numeric order; unboxed metrics; no clipping or malformed outlines. |
-| 1366×768, 150% and 200%, mixed-DPI monitor moves | Columns adapt, scrolling works, settings headings and controls remain readable, taskbar is respected. |
+| 768×930 prototype at 100%, five favorites + thirty ordinary worlds | All 35 reachable with scrolling when needed; separate favorite section; numeric order; centered occupied footprint; correct section counts; no clipped controls or malformed outlines. |
+| 1366×768, 150% and 200%, mixed-DPI monitor moves | Windows scaling is respected; the full fixed design fits proportionally without changing its aspect ratio or column order; scrolling works; caption controls stay reachable; taskbar is respected. |
 | Background window during several live cycles and a hidden review | Foreground window stays active; no flashing, restore, focus changes, or selection. |
 | Scrolled dashboard and settings during ping changes | Offset and keyboard focus stay in place; card identities/order stay stable. |
 | Ctrl+, / Tab / Shift+Tab / Space / Esc | Settings navigation and controls work with visible keyboard focus; cards have no persistent selected state. |
@@ -64,7 +64,7 @@ Review the actual Windows preview artifact and run these checks before approving
 | Online/offline startup, cached catalogue, no cache, exit during scan | Settings always accessible; progress/notices/retry work; exit cancels probes cleanly. |
 | Default30, upgraded60, later chosen60; favorite and preference changes | Migration happens once; preferences/pins persist; session overrides reset on restart; five-favorite and thirty-slot limits hold. |
 | Minimize/close tray options, restore/settings/exit | Monitoring continues hidden; only deliberate restore activates; Exit fully quits. |
-| Maximize, restore, drag, resize, snap; disconnected monitor | Startup maximized; restore bounds remain reachable; custom frame supports native interactions. |
+| Fixed startup, drag, disabled resize/maximize commands; disconnected monitor | Startup uses provisional fixed bounds and a saved reachable position; maximize/resize remain disabled; moving/minimizing work; screen changes refit proportionally. |
 | Explorer/taskbar/tray icon and signed candidate with runtime | Matching icons; only one EXE required; valid timestamp/signature/hash when approved; responsive launch and clean shutdown. |
 
 Design approval requires reviewing actual Windows output against the current approved feedback specifications, not just successful compilation. Private feedback documents stay outside the Git tree. Signing enrollment and manual Windows acceptance must not be represented as completed by a source change.
@@ -77,9 +77,9 @@ The explicit developer command `dotnet run --project tools/OsrsWorldPing.Diagnos
 
 The Windows preview artifact also contains desktop-level taskbar and minimize/restore frames. These supplement WPF renders; native window styles, monitor work-area bounds, foreground focus, and user interaction must be verified on Windows. Temporary validation branches may be committed for CI; merging remains subject to maintainer acceptance.
 
-The settings reveal uses a canvas to measure the page content independently of the animated reserved height. An auto-sized content row would otherwise impose its natural minimum on the reveal and make the world grid jump before the animation completes. The reveal clips moving settings content so it cannot overlap live-world labels. Tests sample the intermediate height and both content offsets.
+The settings reveal uses a canvas to measure the page content independently of the animated reserved height. An auto-sized content row would otherwise impose its natural minimum on the reveal and make the world grid jump before the animation completes. The reveal clips moving settings content so it cannot overlap live-world labels. Tests sample the retained clip and both content offsets while reserved geometry stays fixed.
 
-Maximized client bounds are constrained to the current monitor's physical `rcWork` in `WM_NCCALCSIZE`. The native window retains its invisible resize border and caption styles for DWM transitions. The app installs this hook after WindowChrome's hook because HwndSource invokes hooks in reverse registration order. Acceptance checks compare the painted client bounds with the monitor work area, rather than incorrectly requiring the invisible outer frame to fit inside it.
+The fixed prototype retains native caption/minimize behavior for DWM transitions, removes resize/maximize styles, and blocks the corresponding system commands. Its normal bounds fit the current monitor work area. The app installs its native hook after WindowChrome’s hook because HwndSource invokes hooks in reverse registration order. Acceptance checks cover native styles, client bounds, and minimize/restore frames.
 
 ## Fixed-window prototype (1.5.0)
 
