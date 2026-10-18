@@ -15,6 +15,9 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
         typeof(VirtualWorldColumnsPanel), new FrameworkPropertyMetadata(3, FrameworkPropertyMetadataOptions.AffectsMeasure), value => (int)value >= 1);
     public int Columns { get => (int)GetValue(ColumnsProperty); set => SetValue(ColumnsProperty, value); }
     private const double RowHeight = 44;
+    public double ColumnOffset { get; private set; }
+    private double _footprint, _pitch;
+    private (object? Context, WorldInfo? World, string? Failure)[] _layoutItems = [];
     private ScrollViewer? _scroll;
     private bool _arranged;
     private int _focusRequest;
@@ -38,6 +41,21 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
         if (owner is null) return new Size();
         int count = owner.Items.Count;
         double width = double.IsInfinity(available.Width) ? Columns * 280 : available.Width;
+        double pitch = width / Columns;
+        var layoutItems = owner.Items.Cast<WorldCardModel>().Select(world =>
+            ((object?)world, world.LayoutWorld, world.IsGood || world.Latency.EndsWith(" ms", StringComparison.Ordinal) ? null : world.Latency)).ToArray();
+        if (pitch != _pitch || !_layoutItems.SequenceEqual(layoutItems))
+        {
+            _layoutItems = layoutItems; _pitch = pitch; _footprint = 0;
+            var metrics = new Dictionary<(string, double, bool), double>();
+            for (int index = 0; index < count; index++)
+            {
+                var (_, column) = WorldColumnLayout.Position(index, count, Columns);
+                if (column != Math.Min(count, Columns) - 1) continue;
+                _footprint = Math.Max(_footprint, column * pitch + WorldTileMetrics.Width((WorldCardModel)owner.Items[index], pitch,
+                    VisualTreeHelper.GetDpi(this).PixelsPerDip, metrics));
+            }
+        }
         int firstRow = 0, lastRow = 1;
         if (_arranged && _scroll?.Content is UIElement content)
         {
@@ -83,12 +101,13 @@ public sealed class VirtualWorldColumnsPanel : VirtualizingPanel
     {
         var owner = ItemsControl.GetItemsOwner(this);
         if (owner is null) return finalSize;
+        ColumnOffset = Math.Max(0, (finalSize.Width - _footprint) / 2);
         foreach (UIElement child in InternalChildren)
         {
             int index = owner.ItemContainerGenerator.IndexFromContainer(child);
             if (index < 0) continue;
             var (row, column) = WorldColumnLayout.Position(index, owner.Items.Count, Columns);
-            child.Arrange(new Rect(column * finalSize.Width / Columns, row * RowHeight, finalSize.Width / Columns, RowHeight));
+            child.Arrange(new Rect(ColumnOffset + column * finalSize.Width / Columns, row * RowHeight, finalSize.Width / Columns, RowHeight));
         }
         _arranged = true;
         return finalSize;

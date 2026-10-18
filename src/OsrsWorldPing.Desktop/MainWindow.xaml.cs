@@ -17,6 +17,9 @@ namespace OsrsWorldPing.Desktop;
 
 public partial class MainWindow : Window
 {
+    static MainWindow() => WindowStateProperty.OverrideMetadata(typeof(MainWindow),
+        new FrameworkPropertyMetadata(WindowState.Normal, null, (_, value) =>
+            (WindowState)value == WindowState.Maximized ? WindowState.Normal : value));
     public static readonly DependencyProperty ColumnCountProperty = DependencyProperty.Register(nameof(ColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(3));
     public static readonly DependencyProperty FavoriteColumnCountProperty = DependencyProperty.Register(nameof(FavoriteColumnCount), typeof(int), typeof(MainWindow), new PropertyMetadata(5));
     public int FavoriteColumnCount { get => (int)GetValue(FavoriteColumnCountProperty); private set => SetValue(FavoriteColumnCountProperty, value); }
@@ -34,6 +37,10 @@ public partial class MainWindow : Window
     private readonly System.Drawing.Icon _trayIcon;
     private readonly Forms.ContextMenuStrip _trayMenu;
     private bool _exitRequested, _closing, _closed, _placementLoaded, _appliedTopmost, _ready;
+    private bool _fittingWindow;
+    private string? _fittedScreen;
+    private System.Drawing.Rectangle _fittedArea;
+    private DpiScale _fittedDpi;
     private HwndSource? _source;
     private bool _lastShowSettings, _lastShowHiddenWorlds;
     private bool _backToTopVisible;
@@ -60,6 +67,7 @@ public partial class MainWindow : Window
         _tray = new Forms.NotifyIcon { Text = "OSRS World Ping", Icon = _trayIcon, ContextMenuStrip = menu };
         _tray.DoubleClick += (_, _) => Dispatcher.Invoke(() => RestoreFromTray(false));
         SizeChanged += (_, _) => UpdateLayoutDensity();
+        LocationChanged += (_, _) => FitIfMonitorChanged();
         SettingsTabs.SelectedIndex = 0;
         SettingsContent.Content = ((TabItem)SettingsTabs.Items[0]).Content;
         _ready = true;
@@ -75,6 +83,7 @@ public partial class MainWindow : Window
             SetWindowPos(_source.Handle, IntPtr.Zero, 0, 0, 0, 0, 0x0020 | 0x0001 | 0x0002 | 0x0004 | 0x0010);
         }
         UpdateLayoutDensity();
+        RestorePlacement(null);
         Model.Refresh();
         try { await _engine.StartAsync(); }
         catch (OperationCanceledException) { }
@@ -109,39 +118,52 @@ public partial class MainWindow : Window
 
     private void RestorePlacement(WindowPlacement? placement)
     {
-        if (placement is not null)
+        if (_fittingWindow || _source is null || WindowState == WindowState.Minimized) return;
+        _fittingWindow = true;
+        try
         {
             var dpi = VisualTreeHelper.GetDpi(this);
-            var screen = Forms.Screen.FromRectangle(new System.Drawing.Rectangle(placement.X, placement.Y, placement.Width, placement.Height));
+            var screen = placement is null ? Forms.Screen.FromHandle(_source.Handle) :
+                Forms.Screen.FromPoint(new System.Drawing.Point(placement.X, placement.Y));
             var area = screen.WorkingArea;
             double availableWidth = area.Width / dpi.DpiScaleX, availableHeight = area.Height / dpi.DpiScaleY;
-            MinWidth = Math.Min(420, availableWidth); MinHeight = Math.Min(320, availableHeight);
-            double width = Math.Clamp(placement.Width / dpi.DpiScaleX, MinWidth, availableWidth);
-            double height = Math.Clamp(placement.Height / dpi.DpiScaleY, MinHeight, availableHeight);
+            var (width, height, scale) = FixedWindowLayout.Fit(availableWidth, availableHeight);
+            // Saved coordinates remain useful; old resizable/maximized dimensions no longer set the design size.
+            MinWidth = MinHeight = 0; MaxWidth = MaxHeight = double.PositiveInfinity;
             Width = width; Height = height;
-            Left = area.Left / dpi.DpiScaleX + Math.Clamp((placement.X - area.Left) / dpi.DpiScaleX, 0, Math.Max(0, availableWidth - width));
-            Top = area.Top / dpi.DpiScaleY + Math.Clamp((placement.Y - area.Top) / dpi.DpiScaleY, 0, Math.Max(0, availableHeight - height));
+            MinWidth = MaxWidth = width; MinHeight = MaxHeight = height;
+            Left = area.Left / dpi.DpiScaleX + (placement is null ? (availableWidth - width) / 2 :
+                Math.Clamp((placement.X - area.Left) / dpi.DpiScaleX, 0, Math.Max(0, availableWidth - width)));
+            Top = area.Top / dpi.DpiScaleY + (placement is null ? (availableHeight - height) / 2 :
+                Math.Clamp((placement.Y - area.Top) / dpi.DpiScaleY, 0, Math.Max(0, availableHeight - height)));
+            System.Windows.Shell.WindowChrome.GetWindowChrome(this).CaptionHeight = 40 * scale;
+            _fittedScreen = screen.DeviceName; _fittedArea = area; _fittedDpi = dpi;
         }
-        // Startup is already maximized in XAML. A late settings read must preserve
-        // a user-initiated minimize/restore rather than changing window state.
+        finally { _fittingWindow = false; }
     }
-
+    private void FitIfMonitorChanged()
+    {
+        if (!_ready || !IsLoaded || _closed || _fittingWindow || _source is null || WindowState != WindowState.Normal) return;
+        var screen = Forms.Screen.FromHandle(_source.Handle);
+        if (screen.DeviceName != _fittedScreen || screen.WorkingArea != _fittedArea || !VisualTreeHelper.GetDpi(this).Equals(_fittedDpi)) RefitCurrentWindow();
+    }
+    private void RefitCurrentWindow()
+    {
+        if (_source is not null && ReadWindowRect(_source.Handle, out var bounds))
+            RestorePlacement(new(bounds.Left, bounds.Top, bounds.Right - bounds.Left, bounds.Bottom - bounds.Top, false));
+    }
+    protected override void OnDpiChanged(DpiScale oldDpi, DpiScale newDpi)
+    {
+        base.OnDpiChanged(oldDpi, newDpi);
+        if (_ready && !_closed) Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(RefitCurrentWindow));
+    }
     private void UpdateLayoutDensity()
     {
-        ColumnCount = Math.Clamp((int)((ActualWidth - 48) / 240), 1, 3);
+        ColumnCount = Math.Clamp((int)((FixedWindowLayout.DesignWidth - 48) / 240), 1, 3);
         WorldGridWidth = ColumnCount * 240;
-        bool narrow = ActualWidth < 1400;
-        SharedHeader.RowDefinitions[1].Height = new GridLength(narrow ? 42 : 0);
-        SharedHeader.RowDefinitions[0].Height = new GridLength(ActualWidth < 740 ? 94 : 72);
-        Metrics.MaxWidth = Math.Max(180, ActualWidth - 130);
-        Grid.SetColumnSpan(HeaderReadouts, narrow ? 3 : 1);
-        FavoriteColumnCount = Math.Clamp((int)(Math.Min(ActualWidth - 48, 1080) / 200), 1, 5);
+        Metrics.MaxWidth = FixedWindowLayout.DesignWidth - 200;
+        FavoriteColumnCount = Math.Clamp((int)((FixedWindowLayout.DesignWidth - 48) / 200), 1, 5);
         FavoriteGridWidth = FavoriteColumnCount * 200;
-        double sideWidth = Math.Min(460, Math.Max(0, ActualWidth - 48) / 2);
-        SharedHeader.ColumnDefinitions[0].Width = SharedHeader.ColumnDefinitions[2].Width = new GridLength(sideWidth);
-        Grid.SetRow(SettingsTabs, narrow ? 1 : 0);
-        Grid.SetColumn(SettingsTabs, narrow ? 0 : 1);
-        Grid.SetColumnSpan(SettingsTabs, narrow ? 3 : 1);
     }
 
     private void GearEnter(object sender, MouseEventArgs args) => RotateGear(_gearRestAngle + 90);
@@ -365,7 +387,7 @@ public partial class MainWindow : Window
     {
         if (!_ready || _closed) return;
         double anchor = TrackingControlAnchor.TranslatePoint(new Point(), PageScroll).Y;
-        TrackingStickyOffset.Y = Math.Max(0, anchor);
+        TrackingStickyOffset.Y = Math.Clamp(anchor, 0, Math.Max(0, PageScroll.ActualHeight - TrackingControlHost.ActualHeight));
         bool pinned = Model.ShowWorldTracking && anchor < -.5;
         TrackingControlHost.Background = pinned ? (Brush)FindResource("StickySurface") : null;
         SetBackToTopVisible(pinned && PageScroll.VerticalOffset > .5);
@@ -448,6 +470,7 @@ public partial class MainWindow : Window
     private void MotionPreferenceChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName == nameof(SystemParameters.ClientAreaAnimation) && !SystemParameters.ClientAreaAnimation) StopNavigationMotion();
+        if (args.PropertyName == nameof(SystemParameters.WorkArea)) FitIfMonitorChanged();
     }
     private void OpenProfile(object sender, RoutedEventArgs args)
     {
@@ -458,7 +481,9 @@ public partial class MainWindow : Window
     private async void OnStateChanged(object? sender, EventArgs args)
     {
         int version = ++_trayTransitionVersion;
-        if (!_ready || _closed || WindowState != WindowState.Minimized || !Model.Snapshot.Settings.MinimizeToTray) return;
+        if (!_ready || _closed) return;
+        if (WindowState == WindowState.Normal) { FitIfMonitorChanged(); return; }
+        if (WindowState != WindowState.Minimized || !Model.Snapshot.Settings.MinimizeToTray) return;
         _tray.Visible = true;
         // Hide only after the native taskbar animation; hiding in WM_SIZE aborts DWM's transition.
         if (SystemParameters.MinimizeAnimation) await Task.Delay(350);
@@ -500,8 +525,6 @@ public partial class MainWindow : Window
         }
     }
     private void MinimizeClick(object sender, RoutedEventArgs args) => SystemCommands.MinimizeWindow(this);
-    private void MaximizeClick(object sender, RoutedEventArgs args) => ToggleMaximize();
-    private void ToggleMaximize() { if (WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(this); else SystemCommands.MaximizeWindow(this); }
     private void CloseClick(object sender, RoutedEventArgs args) => Close();
     private void OpenLink(object sender, RequestNavigateEventArgs args)
     {
@@ -514,41 +537,14 @@ public partial class MainWindow : Window
     }
     private IntPtr WindowHook(IntPtr hwnd, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        // Standard maximized windows retain an invisible resize border outside rcWork.
-        // WindowChrome otherwise paints the client across that border and beneath the taskbar.
-        if (message == 0x0083 && wParam != IntPtr.Zero && IsZoomed(hwnd))
-        {
-            // The proposed bounds may already be on a different monitor from the current HWND.
-            var proposed = Marshal.PtrToStructure<NativeRect>(lParam);
-            if (GetMonitorInfo(MonitorFromRect(ref proposed, 2), out var monitor))
-            {
-                Marshal.StructureToPtr(monitor.Work, lParam, false);
-                handled = true; return IntPtr.Zero;
-            }
-        }
-        const int maxButton = 9;
-        if (_ready && message == 0x0084 && WindowState != WindowState.Minimized && MaximizeButton.IsVisible)
-        {
-            long packed = lParam.ToInt64();
-            var point = new Point((short)(packed & 0xffff), (short)((packed >> 16) & 0xffff));
-            var origin = MaximizeButton.PointToScreen(new Point());
-            var dpi = VisualTreeHelper.GetDpi(this);
-            if (new Rect(origin, new Size(MaximizeButton.ActualWidth * dpi.DpiScaleX, MaximizeButton.ActualHeight * dpi.DpiScaleY)).Contains(point))
-            { handled = true; return new IntPtr(maxButton); }
-        }
-        // HTMAXBUTTON preserves Windows 11's native snap-layout hover target.
-        if ((message == 0x00A1 || message == 0x00A2) && wParam.ToInt32() == maxButton)
-        { handled = true; if (message == 0x00A2) ToggleMaximize(); }
+        // Keep double-click, system-menu, keyboard, and native commands from maximizing or sizing this prototype.
+        if (message == 0x0112 && ((wParam.ToInt64() & 0xfff0) is 0xf030 or 0xf000))
+        { handled = true; return IntPtr.Zero; }
         return IntPtr.Zero;
     }
     [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
-    [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int Size; public NativeRect Monitor, Work; public uint Flags; }
-    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] private static extern bool IsZoomed(IntPtr window);
-    [DllImport("user32.dll")] private static extern IntPtr MonitorFromRect(ref NativeRect rectangle, uint flags);
-    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW")]
-    [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadMonitorInfo(IntPtr monitor, ref MonitorInfo info);
-    private static bool GetMonitorInfo(IntPtr handle, out MonitorInfo info)
-    { info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() }; return ReadMonitorInfo(handle, ref info); }
+    [DllImport("user32.dll", EntryPoint = "GetWindowRect")]
+    [return: MarshalAs(UnmanagedType.Bool)] private static extern bool ReadWindowRect(IntPtr window, out NativeRect bounds);
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);

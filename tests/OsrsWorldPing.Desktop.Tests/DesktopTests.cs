@@ -50,18 +50,24 @@ public sealed partial class DesktopTests
     {
         window.WindowState = WindowState.Normal;
         await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
-        // Restored bounds can be centered; a full-desktop test window must start at the work-area origin
-        // so native pointer input can reach its last column, not just an off-screen rendered preview.
+        // Simulate a smaller usable work area; the production window is locked and scales proportionally.
+        var fitted = FixedWindowLayout.Fit(width, height);
+        window.MinWidth = window.MinHeight = 0; window.MaxWidth = window.MaxHeight = double.PositiveInfinity;
         window.Left = SystemParameters.WorkArea.Left; window.Top = SystemParameters.WorkArea.Top;
-        window.Width = width; window.Height = height;
-        await UntilAsync(() => Math.Abs(window.ActualWidth - width) < 1 && Math.Abs(window.ActualHeight - height) < 1);
+        window.Width = fitted.Width; window.Height = fitted.Height;
+        window.MinWidth = window.MaxWidth = fitted.Width; window.MinHeight = window.MaxHeight = fitted.Height;
+        await UntilAsync(() => Math.Abs(window.ActualWidth - fitted.Width) < 1 && Math.Abs(window.ActualHeight - fitted.Height) < 1);
         window.UpdateLayout();
     }
+    private static Rect BoundsIn(FrameworkElement element, Visual ancestor) =>
+        element.TransformToAncestor(ancestor).TransformBounds(new Rect(element.RenderSize));
 
     private static async Task ClickAsync(ButtonBase element)
     {
         element.UpdateLayout();
         Assert.True(element.IsVisible && element.IsEnabled, $"{element.Name} must be available for a native click.");
+        // The fixed window intentionally scrolls. Reach offscreen controls through the viewer before native input.
+        element.BringIntoView(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
         var at = element.PointToScreen(new Point(element.ActualWidth / 2, element.ActualHeight / 2));
         Assert.True(SetCursorPos((int)at.X, (int)at.Y));
         try { await UntilAsync(() => element.IsMouseOver); } // Let WPF process the pointer move before sending button input.
@@ -124,22 +130,22 @@ public sealed partial class DesktopTests
     }
 
     [Fact]
-    public Task ThirtyFiveCardsFitInSeparateNumericColumnsAndOnlyTrackingSettingsShowsTheGrid() => OnUiThreadAsync(async () =>
+    public Task FixedWindowRetainsSeparateNumericColumnsAndOnlyTrackingSettingsShowsTheGrid() => OnUiThreadAsync(async () =>
     {
         var h = Samples(80); var main = new MainWindow(h.Engine); main.Show(); Motion.SetEnabled(main, false);
         try
         {
             await UntilAsync(() => main.Model.Tracked.Count == 30);
-            Assert.Equal(WindowState.Maximized, main.WindowState);
-            Assert.Equal(2, PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures.Count);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            Assert.False(((Button)main.FindName("MaximizeButton")).IsEnabled);
             await ResizeAsync(main, 1920, 1040);
             Assert.Single(PathGeometry.CreateFromGeometry(((System.Windows.Shapes.Path)main.FindName("MaximizeIcon")).Data).Figures);
             Assert.Equal(3, main.ColumnCount); Assert.Equal(35, main.Model.Snapshot.LiveCount);
             var scroll = (ScrollViewer)main.FindName("PageScroll");
             var cards = (ItemsControl)main.FindName("MemberCards"); var favorites = (ItemsControl)main.FindName("FavoriteCards");
             Assert.Equal(16, cards.Items.Count); Assert.Equal(14, ((ItemsControl)main.FindName("FreeCards")).Items.Count); Assert.Equal(5, favorites.Items.Count);
-            Assert.Equal(264, cards.ActualHeight); Assert.Equal(44, favorites.ActualHeight);
-            Assert.True(scroll.ScrollableHeight < 1); Assert.True(scroll.ExtentHeight < 800);
+            Assert.Equal(264, cards.ActualHeight); Assert.Equal(88, favorites.ActualHeight);
+            Assert.True(scroll.ExtentHeight < 1000); // A full favorite group can scroll in the provisional fixed size.
             Assert.Empty(Children<ListBox>(main)); Assert.Empty(Children<DataGrid>(main));
             Assert.Null(((Grid)main.FindName("TitleBar")).Background);
             WorldTile Tile(int id) => Children<WorldTile>(main).Single(t => t.IsVisible && t.DataContext is WorldCardModel w && w.Id == id);
@@ -163,7 +169,7 @@ public sealed partial class DesktopTests
                     var (row, column) = WorldColumnLayout.Position(i, tiles.Length, 3);
                     var point = tiles[i].TranslatePoint(new Point(), section);
                     Assert.InRange(Math.Abs(point.Y - row * 44), 0, 1);
-                    Assert.InRange(Math.Abs(point.X - column * section.ActualWidth / 3), 0, 1);
+                    Assert.InRange(Math.Abs(point.X - column * Children<WorldColumnsPanel>(section).Single().ColumnPitch), 0, 1);
                 }
             }
             Preview(main, "dashboard-1080p.png");
@@ -186,8 +192,8 @@ public sealed partial class DesktopTests
                 if (tab > 0)
                 {
                     var sheet = (Border)main.FindName(tab == 1 ? "ApplicationSheet" : "AboutSheet");
-                    var at = sheet.TranslatePoint(new Point(), main);
-                    Assert.InRange(Math.Abs(at.X + sheet.ActualWidth / 2 - main.ActualWidth / 2), 0, 10);
+                    var bounds = BoundsIn(sheet, main);
+                    Assert.InRange(Math.Abs(bounds.Left + bounds.Width / 2 - main.ActualWidth / 2), 0, 2);
                 }
                 Preview(main, $"settings-{tab}-1080p.png");
             }
@@ -247,7 +253,8 @@ public sealed partial class DesktopTests
                 Assert.InRange(frame.PixelWidth, 1, 32); Assert.InRange(frame.PixelHeight, 1, 32);
             }
             Assert.Equal(23, ((BitmapSource)((System.Windows.Controls.Image)Tile(301).FindName("ActivitySprite")).Source).PixelWidth);
-            var inactive = (WorldCardSurface)Tile(340).FindName("Surface"); SetCursorPos(1, 1);
+            var inactive = (WorldCardSurface)Tile(340).FindName("Surface");
+            inactive.BringIntoView(); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); SetCursorPos(1, 1);
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle); Assert.InRange(inactive.Opacity, .4, .5);
             var at = inactive.PointToScreen(new Point(inactive.ActualWidth / 2, inactive.ActualHeight / 2));
             SetCursorPos((int)at.X, (int)at.Y); await UntilAsync(() => inactive.IsMouseOver && inactive.Opacity > .8);
@@ -540,14 +547,15 @@ public sealed partial class DesktopTests
     });
 
     [Fact]
-    public Task ExistingOffscreenBoundsAreClampedAndStartupStillMaximizes() => OnUiThreadAsync(async () =>
+    public Task ExistingOffscreenBoundsAreClampedAndOldDimensionsDoNotOverrideFixedSize() => OnUiThreadAsync(async () =>
     {
         var h = new Harness(); h.Store.Settings = new AppSettings { Window = new(-50000, -50000, 1000, 600, false) };
         var main = new MainWindow(h.Engine); main.Show();
         try
         {
             await UntilAsync(() => main.Model.Snapshot.SettingsLoaded);
-            Assert.Equal(WindowState.Maximized, main.WindowState);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            Assert.Equal(FixedWindowLayout.DesignWidth, main.Width); Assert.Equal(FixedWindowLayout.DesignHeight, main.Height);
             main.WindowState = WindowState.Normal; main.UpdateLayout(); Assert.True(main.Left > -50000); Assert.True(main.Top > -50000);
             Assert.NotNull(main.Icon);
         }
@@ -625,7 +633,7 @@ public sealed partial class DesktopTests
             var cards = (ItemsControl)main.FindName(members ? "MemberCards" : "FreeCards");
             Assert.Equal(30, cards.Items.Count); Assert.Equal(440, cards.ActualHeight);
             Assert.False(members ? main.Model.HasFreeToPlay : main.Model.HasMembers);
-            Assert.True(((ScrollViewer)main.FindName("PageScroll")).ScrollableHeight < 1);
+            Assert.True(((ScrollViewer)main.FindName("PageScroll")).ExtentHeight < 1000);
             Preview(main, members ? "dashboard-all-members.png" : "dashboard-all-free.png");
         }
         finally { await CloseAsync(main); await h.DisposeAsync(); }
@@ -670,7 +678,7 @@ public sealed partial class DesktopTests
             var monitor = new NativeMonitorInfo { Size = Marshal.SizeOf<NativeMonitorInfo>() };
             Assert.True(ReadMonitorInfo(MonitorFromWindow(handle, 2), ref monitor));
             Assert.True(GetClientRect(handle, out var client)); var origin = new ClientPoint(); Assert.True(ClientToScreen(handle, ref origin));
-            await Task.Delay(80); DwmFlush(); DesktopPreview("desktop-taskbar-maximized.png");
+            await Task.Delay(80); DwmFlush(); DesktopPreview("desktop-fixed-window.png");
             System.IO.File.WriteAllText(System.IO.Path.Combine(AppContext.BaseDirectory, "ui-preview", "native-frame.txt"),
                 $"DWM outer (includes invisible resize border): {frame.Left},{frame.Top},{frame.Right},{frame.Bottom}\nClient: {origin.X},{origin.Y},{origin.X + client.Right},{origin.Y + client.Bottom}\nNative work: {monitor.Work.Left},{monitor.Work.Top},{monitor.Work.Right},{monitor.Work.Bottom}\nWPF work: {SystemParameters.WorkArea}\nWPF bounds: {main.Left},{main.Top},{main.ActualWidth},{main.ActualHeight}\nDPI: {VisualTreeHelper.GetDpi(main).DpiScaleX}");
             Assert.True(origin.X >= monitor.Work.Left && origin.Y >= monitor.Work.Top && origin.X + client.Right <= monitor.Work.Right && origin.Y + client.Bottom <= monitor.Work.Bottom,
@@ -680,7 +688,11 @@ public sealed partial class DesktopTests
             await UntilAsync(() => main.WindowState == WindowState.Minimized);
             SystemCommands.RestoreWindow(main);
             for (int i = 0; i < 8; i++) { await Task.Delay(40); DesktopPreview($"restore-{i:00}.png"); }
-            await UntilAsync(() => main.WindowState == WindowState.Maximized);
+            await UntilAsync(() => main.WindowState == WindowState.Normal);
+            SystemCommands.MaximizeWindow(main); await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+            Assert.Equal(WindowState.Normal, main.WindowState);
+            main.WindowState = WindowState.Maximized;
+            Assert.Equal(WindowState.Normal, main.WindowState);
         }
         finally
         {

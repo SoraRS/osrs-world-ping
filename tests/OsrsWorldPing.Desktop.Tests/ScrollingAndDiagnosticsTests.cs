@@ -58,7 +58,7 @@ public sealed partial class DesktopTests
             Assert.True(lastCardBottom <= back.TranslatePoint(new Point(), scroll).Y, "The floating return button must not cover the last row.");
             Preview(main, "tracking-sticky-controls.png");
             await ClickAsync(back); await UntilAsync(() => scroll.VerticalOffset == 0 && back.Visibility == Visibility.Hidden);
-            Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y - threshold), 0, 1);
+            Assert.InRange(Math.Abs(host.TranslatePoint(new Point(), scroll).Y - Math.Min(threshold, scroll.ActualHeight - host.ActualHeight)), 0, 1);
             scroll.ScrollToVerticalOffset(threshold + 150); await UntilAsync(() => back.Opacity == 1);
             scroll.ScrollToVerticalOffset(threshold - 10); await Task.Delay(65);
             Assert.InRange(back.Opacity, .01, .99); Assert.False(back.IsHitTestVisible);
@@ -102,7 +102,8 @@ public sealed partial class DesktopTests
             Assert.True(interval.TranslatePoint(new Point(), main).Y > cutoff.TranslatePoint(new Point(), main).Y + cutoff.ActualHeight);
             var health = (StackPanel)main.FindName("ConnectionHealth");
             Assert.Equal("OK", main.Model.HealthText);
-            Assert.InRange(Math.Abs(health.TranslatePoint(new Point(), main).X + health.ActualWidth / 2 - main.ActualWidth / 2), 0, 10);
+            var healthBounds = BoundsIn(health, main);
+            Assert.InRange(Math.Abs(healthBounds.Left + healthBounds.Width / 2 - main.ActualWidth / 2), 0, 2);
             Assert.Equal("Refresh worlds", ((Button)main.FindName("CheckConnectionButton")).Content);
             // ShowDialog runs a nested dispatcher; let the test inspect and close it before the click returns.
             var click = Dispatcher.CurrentDispatcher.BeginInvoke(new Action(() =>

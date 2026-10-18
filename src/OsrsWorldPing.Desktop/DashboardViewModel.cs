@@ -35,6 +35,7 @@ public sealed class UiCommand(Func<Task> execute) : ICommand
 public sealed class WorldCardModel : ObservableModel
 {
     private WorldSnapshot _snapshot;
+    internal WorldInfo? LayoutWorld => _snapshot.World;
     private int _cutoff;
     public WorldCardModel(WorldSnapshot snapshot, DashboardViewModel owner)
     {

@@ -21,7 +21,7 @@ The application was previously called **OSRS Check Ping**. On first launch, Worl
 
 ## Read your worlds
 
-The dashboard shows up to **30 eligible worlds** in separate three-column Members and Free to play sections on a large display, plus **five favorites** in a separate row above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. A ping change does not shuffle the list. The **BEST** line shows the lowest current latency, followed by its region flag and world number. **WORLDS** shows the total live count in gold, the live free-to-play count in silver, and saved favorites in pink (including unavailable favorites). Free-to-play favorites are included in both relevant counts. Smaller windows use fewer columns and allow scrolling.
+The dashboard shows up to **30 eligible worlds** in separate three-column Members and Free to play sections, plus **five favorites** in a separate section above them. Automatic selection favors the lowest pings at or below **30 ms** by default. Each section displays worlds by number, reading down a column before continuing to the right. A ping change does not shuffle the list. The **BEST** line shows the lowest current latency, followed by its region flag and world number. Each section header shows its own count: **Members 29** and **Free to play 1**, for example. Favorites have their own pink count and are not counted again in the ordinary sections.
 
 | On the tile | What it means |
 | --- | --- |
@@ -44,7 +44,7 @@ Ping measures your network connection, **not server ticks**. A low reading does 
 
 ## Settings and favorites
 
-Click the **gear** or press **Ctrl+,**. Settings opens inside the same window. **World tracking** keeps the live worlds visible; **Application** and **About** show their settings without the world list. Monitoring continues on every tab. Click the gear again or press **Esc** to return. Page changes fade and slide smoothly; motion follows Windows' animation preference.
+Click the **gear beneath the top-right window controls** or press **Ctrl+,**. The settings tabs appear in the title frame. Settings opens inside the same window. **World tracking** keeps the live worlds visible; **Application** and **About** show their settings without the world list. Monitoring continues on every tab. Click the gear again or press **Esc** to return. Page changes fade and slide smoothly; motion follows Windows' animation preference.
 
 - **World tracking:** select **Show all** below the live grid to unfold the rest of the catalogue in world-number order. **Hide all** folds it away with the same fade and slide transition. The toggle stays at the top of the content area once you scroll past it. **Back to top** fades in at that point, remains at the bottom of the window, and returns you to the beginning of the page. Browsing sends no probes. Inactive worlds fade, with clearer colors on hover; hover for the reading time and whether it came from a scan. The scrollbar stays hidden; wheel, touchpad, and keyboard scrolling remain available.
 - **Favorites:** use the heart to save up to five worlds, including a world outside the normal cutoff. Favorites use their own slots and never appear twice. Remove a favorite before adding a sixth. Removing its heart restores automatic selection; it may return to the hidden list.
@@ -53,7 +53,7 @@ Click the **gear** or press **Ctrl+,**. Settings opens inside the same window. *
 - **Reset to default:** restore the 30 ms cutoff, five-second refresh, and disabled window/tray options. Favorites and saved window placement are kept.
 - **About:** find the version, description, SoraRS's GitHub and Discord profiles, project/support links, privacy information, signing status, and license.
 
-The bottom of settings shows when the catalogue was updated. The reserved progress area shows a scan without shifting that timestamp. The app remembers window bounds for restoring; startup is maximized. When close-to-tray is enabled, use the tray menu's **Exit** to quit fully.
+The bottom of settings shows when the catalogue was updated. The reserved progress area shows a scan without shifting that timestamp. The current fixed-window prototype uses **768 × 930** at 100% Windows scaling; the final dimensions are still under review. Resizing and maximizing are disabled; moving and minimizing remain available. Windows display scaling is respected, and the whole layout fits proportionally if the usable screen is smaller. Lists can scroll without changing their numeric column order. Saved window positions are retained; older saved widths, heights, and maximized states do not override this prototype. When close-to-tray is enabled, use the tray menu's **Exit** to quit fully.
 
 ## Common problems
 

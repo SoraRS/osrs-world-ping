@@ -201,7 +201,7 @@
   </Style>
   <Style TargetType="TabItem">
     <Setter Property="Foreground" Value="{StaticResource Muted}"/>
-    <Setter Property="Padding" Value="22,12"/>
+    <Setter Property="Padding" Value="18,6"/>
     <Setter Property="FontSize" Value="15"/>
     <Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
     <Setter Property="local:Motion.HoverScale" Value="True"/>

@@ -39,7 +39,7 @@ public sealed partial class DesktopTests
                     var (row, column) = WorldColumnLayout.Position(index, cards.Items.Count, main.ColumnCount);
                     var at = tile.TranslatePoint(new Point(), cards);
                     Assert.InRange(Math.Abs(at.Y - row * 44), 0, 1);
-                    Assert.InRange(Math.Abs(at.X - column * cards.ActualWidth / main.ColumnCount), 0, 1);
+                    Assert.InRange(Math.Abs(at.X - Children<VirtualWorldColumnsPanel>(cards).Single().ColumnOffset - column * cards.ActualWidth / main.ColumnCount), 0, 1);
                 }
             }
             Assert.Equal(main.Model.Hidden.Select(w => w.Id), seen.OrderBy(id => id));

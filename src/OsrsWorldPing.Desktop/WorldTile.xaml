@@ -29,7 +29,7 @@
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
         <ToggleButton x:Name="FavoriteToggle" Style="{StaticResource FavoriteToggle}" IsChecked="{Binding IsFavorite, Mode=OneWay}" Command="{Binding ToggleFavorite}" ToolTip="{Binding FavoriteHint}" AutomationProperties.Name="{Binding WorldLabel, StringFormat=Favorite {0}}" Margin="-4,-2,4,-2" />
         <TextBlock x:Name="WorldNumber" Text="{Binding Id}" Style="{StaticResource DangerText}" FontSize="16" FontWeight="SemiBold" Margin="0,0,9,0" ToolTip="{Binding DangerReason}" />
-        <TextBlock x:Name="LatencyValue" Text="{Binding Latency}" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center">
+        <TextBlock x:Name="LatencyValue" Text="{Binding Latency}" MinWidth="56" TextAlignment="Right" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center">
           <TextBlock.Style>
             <Style TargetType="TextBlock">
               <Setter Property="Foreground" Value="#C7AB76" />
