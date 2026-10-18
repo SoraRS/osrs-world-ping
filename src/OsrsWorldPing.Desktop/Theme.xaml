@@ -81,11 +81,6 @@
       <Border Background="{TemplateBinding Background}" CornerRadius="1.5"><Grid x:Name="PART_Track" ClipToBounds="True"><Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" CornerRadius="1.5"/></Grid></Border>
     </ControlTemplate></Setter.Value></Setter>
   </Style>
-  <Style x:Key="RevealToggle" TargetType="ToggleButton">
-    <Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#8E9794"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Padding" Value="20,5"/><Setter Property="local:Motion.HoverScale" Value="True"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
-    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter>
-    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}"/></Trigger></Style.Triggers>
-  </Style>
   <Style x:Key="FocusRing" TargetType="Control">
     <Setter Property="Template">
       <Setter.Value>
@@ -94,6 +89,11 @@
         </ControlTemplate>
       </Setter.Value>
     </Setter>
+  </Style>
+  <Style x:Key="RevealToggle" TargetType="ToggleButton">
+    <Setter Property="HorizontalAlignment" Value="Center"/><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="#8E9794"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Padding" Value="20,5"/><Setter Property="local:Motion.HoverScale" Value="True"/><Setter Property="FocusVisualStyle" Value="{StaticResource FocusRing}"/>
+    <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ToggleButton"><Border Background="Transparent" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border></ControlTemplate></Setter.Value></Setter>
+    <Style.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Gold}"/></Trigger></Style.Triggers>
   </Style>
   <Style TargetType="Button">
     <Setter Property="Foreground" Value="{StaticResource Ink}"/>

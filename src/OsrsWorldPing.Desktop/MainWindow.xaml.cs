@@ -230,8 +230,13 @@ public partial class MainWindow : Window
 
     private void HiddenCardsSizeChanged(object sender, SizeChangedEventArgs args)
     {
-        if (_ready && !_closed && Model.ShowHiddenWorlds && !IsRevealingWorlds && Math.Abs(_hiddenTargetHeight - args.NewSize.Height) > .5)
-            AnimateHiddenWorlds();
+        if (!_ready || _closed || !Model.ShowHiddenWorlds) return;
+        // Defer until measurement finishes; a resize or catalogue update can retarget an in-flight reveal.
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(() =>
+        {
+            if (!_closed && Model.ShowHiddenWorlds && Math.Abs(_hiddenTargetHeight - HiddenCards.DesiredSize.Height) > .5)
+                AnimateHiddenWorlds();
+        }));
     }
     private void AnimateHiddenWorlds()
     {

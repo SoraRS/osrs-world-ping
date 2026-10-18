@@ -311,9 +311,9 @@ public sealed class DesktopTests
             Assert.True(((TranslateTransform)outgoing.RenderTransform).Y > 0);
             Assert.True(((TranslateTransform)content.RenderTransform).Y < 0);
             Assert.InRange(reveal.ActualHeight, Math.Min(applicationHeight, content.DesiredSize.Height) + 1, Math.Max(applicationHeight, content.DesiredSize.Height) - 1);
-            Preview(main, "page-transition-about.png");
             // Both fades remain visible well beyond the former 240 ms exit.
-            await Task.Delay(240);
+            // Wait for the visual state before encoding a screenshot, which can consume part of the fade duration.
+            await UntilAsync(() => outgoing.Opacity is > .15 and < .85 && content.Opacity is > .05 and < .85);
             Assert.True(main.IsNavigating);
             Assert.InRange(outgoing.Opacity, .01, .99);
             Assert.InRange(content.Opacity, .01, .99);
@@ -397,6 +397,13 @@ public sealed class DesktopTests
             main.Model.ShowAllWorlds = false; await Task.Delay(120);
             main.Model.ShowAllWorlds = true; await UntilAsync(() => !main.IsRevealingWorlds);
             Assert.Equal(expandedHeight, reveal.ActualHeight); Assert.Equal(1, cards.Opacity);
+            main.Model.ShowAllWorlds = false; await Task.Delay(120);
+            main.Model.ShowAllWorlds = true; await Task.Delay(120);
+            await ResizeAsync(main, 683, 640);
+            await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - cards.DesiredSize.Height) < .5);
+            Assert.True(reveal.ActualHeight > expandedHeight);
+            await ResizeAsync(main, 1920, 1040);
+            await UntilAsync(() => !main.IsRevealingWorlds && Math.Abs(reveal.ActualHeight - expandedHeight) < .5);
             // Leaving during a reveal cannot leave hidden cards on Application or About.
             main.Model.SelectedSettingsTab = 1; await Dispatcher.Yield(DispatcherPriority.Loaded); await UntilAsync(() => !main.IsNavigating && !main.IsRevealingWorlds);
             Assert.False(cards.IsVisible); Assert.False(((StackPanel)main.FindName("WorldList")).IsVisible);
